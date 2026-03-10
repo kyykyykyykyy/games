@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>SnakePong</title>
+    <style>
+        body { background: #05050a; color: #fff; text-align: center; margin: 0; padding: 10px; font-family: 'Courier New', monospace; overflow: hidden; }
+        #ui-container { display: flex; justify-content: space-around; align-items: center; background: rgba(0, 255, 255, 0.05); padding: 15px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #0ff; }
+        .stat-box { font-size: 20px; font-weight: bold; color: #0ff; text-shadow: 0 0 8px #0ff; }
+        #gameCanvas { background: #000; border: 2px solid #333; }
+        .guide { color: #888; font-size: 14px; margin-top: 5px; }
+    </style>
+</head>
+<body onload="init()">
+    <div id="ui-container">
+        <div class="stat-box" id="lvUI">LV 1: HEART</div>
+        <div class="stat-box" id="scoreUI">SCORE: 0</div>
+        <div class="stat-box" id="lengthUI">LENGTH: 15</div>
+        <div class="stat-box" id="timerUI">TIME: 60</div>
+    </div>
+    <canvas id="gameCanvas" width="600" height="720"></canvas>
+    <div class="guide">방향키: 이동 | 치트키 'N': 다음 레벨 스킵</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        let score = 0, timeLeft = 60, level = 1, gameActive = true;
+        
+        // 무지개 색상
+        const RAINBOW = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
+        
+        // 뱀 & 공 초기 설정
+        let snake = { x: 300, y: 580, dx: 0, dy: 0, trail: [], targetLength: 15, size: 30 };
+        let ball = { x: 300, y: 450, dx: 4, dy: -4, speed: 5, radius: 10 };
+        
+        let bricks = [];
+        const BRICK_SIZE = 28; // 우주 전투기를 위해 28로 최적화
+
+        const LEVEL_NAMES = ["HEART", "RAINBOW", "RABBIT", "ALIEN", "SPACE FIGHTER"];
+
+        // 확정된 5가지 맵 디자인
+        const MAPS = [
+            // 1. 하트 (Heart)
+            [
+                [0,0,1,1,1,0,0,0,1,1,1,0,0],
+                [0,1,1,1,1,1,0,1,1,1,1,1,0],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [0,1,1,1,1,1,1,1,1,1,1,1,0],
+                [0,0,1,1,1,1,1,1,1,1,1,0,0],
+                [0,0,0,1,1,1,1,1,1,1,0,0,0],
+                [0,0,0,0,1,1,1,1,1,0,0,0,0],
+                [0,0,0,0,0,1,1,1,0,0,0,0,0],
+                [0,0,0,0,0,0,1,0,0,0,0,0,0]
+            ],
+            // 2. 무지개 (Rainbow)
+            [
+                [0,0,0,0,1,1,1,1,1,0,0,0,0],
+                [0,0,1,1,1,1,1,1,1,1,1,0,0],
+                [0,1,1,1,0,0,0,0,0,1,1,1,0],
+                [1,1,1,0,0,1,1,1,0,0,1,1,1],
+                [1,1,0,0,1,1,1,1,1,0,0,1,1],
+                [1,1,0,1,1,0,0,0,1,1,0,1,1],
+                [1,1,0,1,1,0,1,0,1,1,0,1,1]
+            ],
+            // 3. 토끼 (Rabbit)
+            [
+                [0,0,1,1,0,0,0,0,0,1,1,0,0],
+                [0,0,1,1,0,0,0,0,0,1,1,0,0],
+                [0,0,1,1,0,0,0,0,0,1,1,0,0],
+                [0,0,1,1,0,0,0,0,0,1,1,0,0],
+                [0,0,1,1,1,1,1,1,1,1,1,0,0],
+                [0,1,1,1,1,1,1,1,1,1,1,1,0],
+                [0,1,1,0,1,1,1,1,1,0,1,1,0],
+                [0,1,1,1,1,1,1,1,1,1,1,1,0],
+                [0,0,1,1,1,1,0,1,1,1,1,0,0],
+                [0,0,0,1,1,1,1,1,1,1,0,0,0]
+            ],
+            // 4. 외계인 (Alien)
+            [
+                [0,0,1,0,0,0,0,0,1,0,0],
+                [0,0,0,1,0,0,0,1,0,0,0],
+                [0,0,1,1,1,1,1,1,1,0,0],
+                [0,1,1,0,1,1,1,0,1,1,0],
+                [1,1,1,1,1,1,1,1,1,1,1],
+                [1,0,1,1,1,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,1,0,1],
+                [0,0,0,1,1,0,1,1,0,0,0]
+            ],
+            // 5. 우주 전투기 (Space Fighter)
+            [
+                [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0],
+                [0,0,0,0,0,0,1,1,1,0,0,0,0,0,0],
+                [0,0,0,0,0,1,1,1,1,1,0,0,0,0,0],
+                [0,0,0,0,0,1,0,1,0,1,0,0,0,0,0],
+                [0,0,1,1,0,1,1,1,1,1,0,1,1,0,0],
+                [0,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,1,0,0,1,1,1,1,1,1,1,0,0,1,1],
+                [1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+                [0,0,0,0,0,0,1,0,1,0,0,0,0,0,0],
+                [0,0,0,0,0,1,1,0,1,1,0,0,0,0,0]
+            ]
+        ];
+
+        function init() {
+            bricks = [];
+            const curMap = MAPS[(level-1) % MAPS.length];
+            const startX = (canvas.width - curMap[0].length * BRICK_SIZE) / 2;
+            const startY = 80;
+
+            curMap.forEach((row, r) => {
+                row.forEach((col, c) => {
+                    if(col) bricks.push({ 
+                        x: startX + c * BRICK_SIZE, 
+                        y: startY + r * BRICK_SIZE, 
+                        alive: true, 
+                        color: RAINBOW[r % RAINBOW.length] 
+                    });
+                });
+            });
+
+            ball.speed = Math.min(8.5, 4.5 + (level * 0.5));
+            ball.x = 300; ball.y = 450; 
+            ball.dy = -ball.speed;
+            ball.dx = (Math.random() > 0.5 ? 1 : -1) * ball.speed;
+            
+            snake.trail = [];
+            for(let i=0; i<snake.targetLength; i++) snake.trail.push({x:300, y:580});
+            play();
+        }
+
+        document.onkeydown = e => {
+            const k = e.keyCode;
+            if(k == 37) { snake.dx = -10; snake.dy = 0; }
+            if(k == 38) { snake.dy = -10; snake.dx = 0; }
+            if(k == 39) { snake.dx = 10; snake.dy = 0; }
+            if(k == 40) { snake.dy = 10; snake.dx = 0; }
+            
+            // 🚀 치트키 (N키를 누르면 다음 레벨로 넘어감!)
+            if(k == 78) { 
+                level++; 
+                timeLeft = 60; 
+                init(); 
+            }
+        };
+
+        setInterval(() => { if(timeLeft > 0) timeLeft--; else gameActive = false; }, 1000);
+
+        function play() {
+            if(!gameActive) { alert("TIME UP!"); location.reload(); return; }
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 뱀 이동 및 목표 길이 유지
+            snake.trail.unshift({x: snake.x, y: snake.y});
+            while(snake.trail.length > snake.targetLength) snake.trail.pop();
+            snake.x += snake.dx; snake.y += snake.dy;
+
+            // 2. 뱀 <-> 벽 반사
+            if(snake.x < 0) { snake.x = 0; snake.dx *= -1; }
+            if(snake.x > canvas.width - snake.size) { snake.x = canvas.width - snake.size; snake.dx *= -1; }
+            if(snake.y < 0) { snake.y = 0; snake.dy *= -1; }
+            if(snake.y > canvas.height - snake.size) { snake.y = canvas.height - snake.size; snake.dy *= -1; }
+
+            // 3. 뱀 <-> 블록 밀어내기
+            bricks.forEach(b => {
+                if(b.alive && snake.x < b.x + BRICK_SIZE && snake.x + snake.size > b.x && snake.y < b.y + BRICK_SIZE && snake.y + snake.size > b.y) {
+                    let overlapX = Math.min(snake.x + snake.size - b.x, b.x + BRICK_SIZE - snake.x);
+                    let overlapY = Math.min(snake.y + snake.size - b.y, b.y + BRICK_SIZE - snake.y);
+                    if(overlapX < overlapY) { snake.x += (snake.dx > 0) ? -overlapX : overlapX; snake.dx *= -1; } 
+                    else { snake.y += (snake.dy > 0) ? -overlapY : overlapY; snake.dy *= -1; }
+                }
+            });
+
+            // 4. 공 이동 및 벽 반사
+            ball.x += ball.dx; ball.y += ball.dy;
+            if(ball.x - ball.radius < 0) { ball.x = ball.radius; ball.dx *= -1; }
+            if(ball.x + ball.radius > canvas.width) { ball.x = canvas.width - ball.radius; ball.dx *= -1; }
+            if(ball.y - ball.radius < 0) { ball.y = ball.radius; ball.dy *= -1; }
+            if(ball.y + ball.radius > canvas.height) { ball.y = canvas.height - ball.radius; ball.dy = -Math.abs(ball.speed); }
+
+            // 5. 공 <-> 뱀 충돌 보정
+            let hitSnake = false;
+            let ballRect = { x: ball.x - ball.radius, y: ball.y - ball.radius, w: ball.radius * 2, h: ball.radius * 2 };
+
+            for(let t of snake.trail) {
+                if(ballRect.x < t.x + snake.size && ballRect.x + ballRect.w > t.x && ballRect.y < t.y + snake.size && ballRect.y + ballRect.h > t.y) {
+                    let overlapX = Math.min(ballRect.x + ballRect.w - t.x, t.x + snake.size - ballRect.x);
+                    let overlapY = Math.min(ballRect.y + ballRect.h - t.y, t.y + snake.size - ballRect.y);
+                    if(overlapX < overlapY) { ball.dx *= -1; ball.x += Math.sign(ball.dx) * overlapX; } 
+                    else { ball.dy *= -1; ball.y += Math.sign(ball.dy) * overlapY; }
+                    hitSnake = true; break; 
+                }
+            }
+
+            if(hitSnake) {
+                snake.dx = (snake.dx === 0) ? Math.sign(-ball.dx) * 5 : snake.dx * -1;
+                snake.dy = (snake.dy === 0) ? Math.sign(-ball.dy) * 5 : snake.dy * -1;
+            }
+
+            // 6. 공 <-> 블록 충돌 (블록 파괴 및 뱀 길이 증가)
+            for(let b of bricks) {
+                if(b.alive && ballRect.x < b.x + BRICK_SIZE && ballRect.x + ballRect.w > b.x && ballRect.y < b.y + BRICK_SIZE && ballRect.y + ballRect.h > b.y) {
+                    b.alive = false;
+                    score += 10;
+                    snake.targetLength += 1;
+                    let overlapX = Math.min(ballRect.x + ballRect.w - b.x, b.x + BRICK_SIZE - ballRect.x);
+                    let overlapY = Math.min(ballRect.y + ballRect.h - b.y, b.y + BRICK_SIZE - ballRect.y);
+                    if(overlapX < overlapY) ball.dx *= -1; else ball.dy *= -1;
+                    break;
+                }
+            }
+
+            // 그리기 파트
+            bricks.forEach(b => {
+                if(b.alive) { 
+                    ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, BRICK_SIZE, BRICK_SIZE);
+                    ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.strokeRect(b.x, b.y, BRICK_SIZE, BRICK_SIZE);
+                }
+            });
+
+            snake.trail.forEach((t, i) => {
+                ctx.fillStyle = RAINBOW[i % RAINBOW.length];
+                ctx.fillRect(t.x, t.y, snake.size, snake.size);
+            });
+
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fillStyle = "#fff"; ctx.fill();
+
+            // 레벨업 체크
+            if(bricks.every(b => !b.alive)) { level++; timeLeft = 60; init(); }
+            
+            // UI 텍스트 업데이트
+            let levelText = LEVEL_NAMES[(level-1) % LEVEL_NAMES.length];
+            document.getElementById("lvUI").innerText = `LV ${level}: ${levelText}`;
+            document.getElementById("scoreUI").innerText = "SCORE: " + score;
+            document.getElementById("lengthUI").innerText = "LENGTH: " + snake.targetLength;
+            document.getElementById("timerUI").innerText = "TIME: " + timeLeft;
+            
+            requestAnimationFrame(play);
+        }
+    </script>
+</body>
+</html>

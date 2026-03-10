@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>저메추사다리</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f0f12;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { font-weight: 900; font-size: 2.5rem; letter-spacing: -1px; margin-bottom: 5px; 
+             background: linear-gradient(to right, #fff, #666); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .info { color: #777; margin-bottom: 25px; }
+        .main-container {
+            background: #1a1a1e;
+            padding: 30px;
+            border-radius: 25px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+            border: 1px solid #2a2a2e;
+        }
+        .controls { margin-bottom: 20px; }
+        button {
+            padding: 14px 35px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 12px;
+            transition: 0.3s;
+        }
+        button:hover { background: #333; border-color: #888; transform: translateY(-2px); }
+        canvas {
+            background: #050505;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: inset 0 0 30px rgba(0,0,0,1);
+        }
+        #result-text {
+            margin-top: 30px;
+            font-size: 2.2rem;
+            font-weight: 900;
+            text-align: center;
+            min-height: 60px;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>저메추사다리</h1>
+    <p class="info">원하는 번호를 클릭하면 해당 칸의 고유 색상으로 출발합니다!</p>
+    
+    <div class="main-container">
+        <div class="controls">
+            <button onclick="initGame()">새 게임 시작 (RESET)</button>
+        </div>
+        <canvas id="ladderCanvas" width="700" height="750"></canvas>
+        <div id="result-text">번호를 눌러보세요!</div>
+    </div>
+
+<script>
+    const menuPool = ["초밥", "피자", "햄버거", "도시락", "육회", "돈가스", "짜장면", "짬뽕", "탕수육", "쌀국수", "마라탕", "떡볶이", "김밥", "제육볶음", "김치찌개", "된장찌개", "부대찌개", "삼겹살", "갈비탕", "순대국", "파스타", "스테이크", "리조또", "텐동", "라멘", "우동", "소바", "냉면", "비빔밥", "닭갈비", "치킨", "찜닭", "아귀찜", "해물찜", "족발", "보쌈", "곱창", "막창", "양꼬치", "훠궈", "샌드위치", "샐러드", "포케", "수제버거", "칼국수", "수제비", "잔치국수", "비빔국수", "콩국수", "월남쌈", "커리", "인도카레", "팟타이", "나시고랭", "타코", "퀘사디아", "부리또", "감자탕", "뼈해장국", "국밥", "순두부찌개", "육개장", "설렁탕", "추어탕", "삼계탕", "오리주물럭", "장어구이", "생선구이", "간장게장", "양념게장", "오코노미야끼", "타코야끼", "야끼소바", "가츠동", "에비동", "규동", "사케동", "물회", "회덮밥", "매운탕", "분짜", "반미", "팟시유", "똠양꿍", "딤섬", "우육면", "꿔바로우", "유산슬", "팔보채", "마파두부", "고추잡채", "라조기", "깐풍기", "양장피", "누룽지탕", "멘보샤", "토마토달걀볶음", "탄탄면", "마라샹궈", "냉모밀"];
+
+    // 🎨 6인용 고정 네온 컬러 (순서대로 1~6번)
+    const lineColors = [
+        '#FF3131', // 1번: 레드
+        '#39FF14', // 2번: 그린
+        '#00D2FF', // 3번: 블루
+        '#FFAC1C', // 4번: 오렌지
+        '#FF00FF', // 5번: 핑크
+        '#FFF01F'  // 6번: 옐로우
+    ];
+
+    const canvas = document.getElementById('ladderCanvas');
+    const ctx = canvas.getContext('2d');
+    const resultDiv = document.getElementById('result-text');
+
+    let cols = 6; 
+    let rows = 20; 
+    let ladder = [];
+    let currentMenus = [];
+    let isAnimating = false;
+
+    function initGame() {
+        if(isAnimating) return;
+        resultDiv.innerText = "번호를 선택하세요!";
+        resultDiv.style.color = "#fff";
+        resultDiv.style.textShadow = "none";
+        
+        // 메뉴 랜덤 6개
+        currentMenus = [...menuPool].sort(() => 0.5 - Math.random()).slice(0, cols);
+        
+        ladder = [];
+        for (let i = 0; i < rows; i++) {
+            let row = new Array(cols - 1).fill(false);
+            for (let j = 0; j < cols - 1; j++) {
+                if (Math.random() > 0.62 && (j === 0 || !row[j-1])) {
+                    row[j] = true;
+                }
+            }
+            ladder.push(row);
+        }
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#333';
+        
+        const spacing = canvas.width / (cols + 1);
+
+        for (let i = 0; i < cols; i++) {
+            let x = (i + 1) * spacing;
+            
+            // 기둥 그리기
+            ctx.beginPath();
+            ctx.moveTo(x, 70);
+            ctx.lineTo(x, canvas.height - 70);
+            ctx.stroke();
+
+            // 상단 번호 (각 줄의 고유 색상 적용)
+            ctx.fillStyle = lineColors[i];
+            ctx.font = 'bold 24px Noto Sans KR';
+            ctx.textAlign = 'center';
+            ctx.fillText(i + 1, x, 50);
+            
+            // 하단 메뉴 (연회색)
+            ctx.fillStyle = '#aaa';
+            ctx.font = 'bold 16px Noto Sans KR';
+            ctx.fillText(currentMenus[i], x, canvas.height - 40);
+        }
+
+        // 가로줄 (발판)
+        for (let i = 0; i < rows; i++) {
+            let y = 90 + i * ( (canvas.height - 180) / rows );
+            for (let j = 0; j < cols - 1; j++) {
+                if (ladder[i][j]) {
+                    ctx.beginPath();
+                    ctx.moveTo((j + 1) * spacing, y);
+                    ctx.lineTo((j + 2) * spacing, y);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    canvas.onclick = function(e) {
+        if(isAnimating) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const spacing = canvas.width / (cols + 1);
+        
+        for(let i=0; i<cols; i++) {
+            let colX = (i+1) * spacing;
+            if(Math.abs(x - colX) < 35) {
+                animatePath(i);
+                break;
+            }
+        }
+    };
+
+    async function animatePath(startCol) {
+        isAnimating = true;
+        draw(); // 이전 경로 초기화
+
+        let currentCol = startCol;
+        const spacing = canvas.width / (cols + 1);
+        const yStep = (canvas.height - 180) / rows;
+        const chosenColor = lineColors[startCol]; // 시작 번호에 맞는 색상 선택
+
+        // ✨ 네온 스타일 설정
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = chosenColor;
+        ctx.shadowColor = chosenColor;
+        ctx.shadowBlur = 15;
+
+        for (let i = 0; i < rows; i++) {
+            let x = (currentCol + 1) * spacing;
+            let y = 90 + i * yStep;
+
+            // 아래로 이동 애니메이션
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + yStep);
+            ctx.stroke();
+            await new Promise(r => setTimeout(r, 40));
+
+            // 가로 이동 체크
+            let moved = false;
+            if (currentCol < cols - 1 && ladder[i][currentCol]) {
+                ctx.beginPath();
+                ctx.moveTo(x, y + yStep);
+                ctx.lineTo(x + spacing, y + yStep);
+                ctx.stroke();
+                currentCol++;
+                moved = true;
+            } else if (currentCol > 0 && ladder[i][currentCol - 1]) {
+                ctx.beginPath();
+                ctx.moveTo(x, y + yStep);
+                ctx.lineTo(x - spacing, y + yStep);
+                ctx.stroke();
+                currentCol--;
+                moved = true;
+            }
+            if(moved) await new Promise(r => setTimeout(r, 40));
+        }
+        
+        // 결과 강조
+        resultDiv.innerText = `오늘의 메뉴: [ ${currentMenus[currentCol]} ]`;
+        resultDiv.style.color = chosenColor;
+        resultDiv.style.textShadow = `0 0 15px ${chosenColor}, 0 0 30px ${chosenColor}`;
+        
+        isAnimating = false;
+    }
+
+    initGame();
+</script>
+</body>
+</html>
