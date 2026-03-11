@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>강아지 미로 - 모바일 통합 버전</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            display: flex; flex-direction: column; align-items: center;
+            font-family: 'Segoe UI Emoji', sans-serif; margin: 0; overflow: hidden;
+            touch-action: none; /* 브라우저 기본 스크롤 방지 */
+        }
+        #ui-container {
+            width: 100%; max-width: 600px; padding: 10px; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 10;
+        }
+        .info { font-size: 18px; font-weight: bold; color: #166534; }
+        canvas {
+            background: #ffffff; border: 5px solid #ffffff; border-radius: 15px;
+            margin-top: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            max-width: 95vw; max-height: 50vh; /* 모바일 화면 맞춤 */
+        }
+        /* 모바일 컨트롤러 UI */
+        #controls {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-top: 20px; padding: 10px;
+        }
+        .btn {
+            width: 60px; height: 60px; background: white; border: 2px solid #86efac;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            -webkit-user-select: none; user-select: none;
+        }
+        .btn:active { background: #86efac; transform: scale(0.9); }
+        .up { grid-column: 2; }
+        .left { grid-column: 1; }
+        .down { grid-column: 2; }
+        .right { grid-column: 3; }
+        
+        #mobile-guide {
+            font-size: 12px; color: #15803d; margin-top: 10px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-container">
+    <div class="info" id="status">💎 LV: 1 | 🌟 0</div>
+    <div class="info" style="font-size: 12px;">🐱피해 🦴찾기!</div>
+</div>
+
+<canvas id="gameCanvas" width="600" height="600"></canvas>
+
+<div id="mobile-guide">화면을 **드래그**하거나 아래 **버튼**을 터치하세요!</div>
+
+<div id="controls">
+    <div class="btn up" id="btnUp">🔼</div>
+    <div class="btn left" id="btnLeft">◀️</div>
+    <div class="btn down" id="btnDown">🔽</div>
+    <div class="btn right" id="btnRight">▶️</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const statusDisplay = document.getElementById('status');
+
+const gridSize = 40;
+const cols = 15;
+const rows = 15;
+let score = 0, level = 1, catSpeed = 300, portalTimer = 0;
+
+// 10종 미로 중 샘플
+const mazeTemplates = [
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
+];
+
+let currentMaze = [], paths = [], dog = { x: 1, y: 1 }, bone = { x: 0, y: 0 };
+let cats = [], portals = [], footprints = [];
+
+function initLevel() {
+    currentMaze = mazeTemplates[Math.floor(Math.random() * mazeTemplates.length)];
+    paths = [];
+    for(let y=0; y<rows; y++) for(let x=0; x<cols; x++) if(currentMaze[y][x] === 0) paths.push({x, y});
+    dog = { x: 1, y: 1 }; footprints = [];
+    let occupied = [`${dog.x},${dog.y}`];
+    const getUniquePath = () => {
+        let p; do { p = paths[Math.floor(Math.random() * paths.length)]; } while (occupied.includes(`${p.x},${p.y}`));
+        occupied.push(`${p.x},${p.y}`); return p;
+    };
+    bone = getUniquePath();
+    cats = [getUniquePath(), getUniquePath(), getUniquePath()].map(p => ({...p, dir: {x:0, y:1}}));
+    refreshPortals(occupied);
+    catSpeed = Math.max(80, 350 - (level * 25));
+    statusDisplay.innerText = `💎 LV: ${level} | 🌟 ${score}`;
+    portalTimer = 0;
+}
+
+function refreshPortals(fixedOccupied = null) {
+    portals = [];
+    let currentOccupied = fixedOccupied || [`${dog.x},${dog.y}`, `${bone.x},${bone.y}`, ...cats.map(c=>`${c.x},${c.y}`)];
+    const colors = ['#60a5fa', '#f87171', '#fbbf24'];
+    colors.forEach(color => {
+        let pA, pB;
+        do { pA = paths[Math.floor(Math.random() * paths.length)]; } while (currentOccupied.includes(`${pA.x},${pA.y}`));
+        currentOccupied.push(`${pA.x},${pA.y}`);
+        do { pB = paths[Math.floor(Math.random() * paths.length)]; } while (currentOccupied.includes(`${pB.x},${pB.y}`));
+        currentOccupied.push(`${pB.x},${pB.y}`);
+        portals.push({ a: pA, b: pB, color: color });
+    });
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#475569';
+    for(let y=0; y<rows; y++) for(let x=0; x<cols; x++) if(currentMaze[y][x] === 1) {
+        ctx.beginPath(); ctx.roundRect(x*gridSize+2, y*gridSize+2, gridSize-4, gridSize-4, 8); ctx.fill();
+    }
+    ctx.fillStyle = '#b91c1c';
+    footprints.forEach((fp, i) => {
+        ctx.globalAlpha = 0.3 * (1 - (footprints.length - 1 - i) / 10);
+        ctx.beginPath(); ctx.arc(fp.x*gridSize+20, fp.y*gridSize+20, 4, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+    const isWarning = portalTimer >= 5000;
+    portals.forEach(p => {
+        ctx.globalAlpha = isWarning ? (0.4 + Math.sin(Date.now() / 100) * 0.4) : 0.7;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.a.x*gridSize+20, p.a.y*gridSize+20, 15, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.b.x*gridSize+20, p.b.y*gridSize+20, 15, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+    ctx.font = "30px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("🦴", bone.x*gridSize+20, bone.y*gridSize+22);
+    cats.forEach(c => ctx.fillText("🐱", c.x*gridSize+20, c.y*gridSize+22));
+    ctx.fillText("🐶", dog.x*gridSize+20, dog.y*gridSize+22);
+}
+
+function moveDog(dx, dy) {
+    let nx = dog.x + dx, ny = dog.y + dy;
+    if(nx >= 0 && nx < cols && ny >= 0 && ny < rows && currentMaze[ny][nx] === 0) {
+        dog.x = nx; dog.y = ny;
+        footprints.push({x: dog.x, y: dog.y}); if(footprints.length > 10) footprints.shift();
+        portals.forEach(p => {
+            if(dog.x === p.a.x && dog.y === p.a.y) { dog.x = p.b.x; dog.y = p.b.y; }
+            else if(dog.x === p.b.x && dog.y === p.b.y) { dog.x = p.a.x; dog.y = p.a.y; }
+        });
+        if(dog.x === bone.x && dog.y === bone.y) { score += 10; level++; initLevel(); }
+    }
+}
+
+// 드래그 조작 변수
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+}, false);
+
+canvas.addEventListener('touchend', e => {
+    let touchEndX = e.changedTouches[0].clientX;
+    let touchEndY = e.changedTouches[0].clientY;
+    let dx = touchEndX - touchStartX;
+    let dy = touchEndY - touchStartY;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+        if (Math.abs(dx) > 30) moveDog(dx > 0 ? 1 : -1, 0);
+    } else {
+        if (Math.abs(dy) > 30) moveDog(0, dy > 0 ? 1 : -1);
+    }
+}, false);
+
+// 버튼 조작
+document.getElementById('btnUp').onclick = () => moveDog(0, -1);
+document.getElementById('btnDown').onclick = () => moveDog(0, 1);
+document.getElementById('btnLeft').onclick = () => moveDog(-1, 0);
+document.getElementById('btnRight').onclick = () => moveDog(1, 0);
+
+function gameLoop() {
+    portalTimer += 100;
+    if (portalTimer >= 7000) { refreshPortals(); portalTimer = 0; }
+    if (Date.now() % (catSpeed) < 100) {
+        cats.forEach(c => {
+            let nx = c.x + c.dir.x, ny = c.y + c.dir.y;
+            if(nx < 0 || nx >= cols || ny < 0 || ny >= rows || currentMaze[ny][nx] === 1 || Math.random() < 0.1) {
+                const d = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+                const v = d.filter(dir => {
+                    let tx = c.x + dir.x, ty = c.y + dir.y;
+                    return tx>=0 && tx<cols && ty>=0 && ty<rows && currentMaze[ty][tx] === 0;
+                });
+                if(v.length > 0) c.dir = v[Math.floor(Math.random()*v.length)];
+            }
+            c.x += c.dir.x; c.y += c.dir.y;
+            if(c.x === dog.x && c.y === dog.y) {
+                score -= 5; statusDisplay.innerText = `💎 LV: ${level} | 🌟 ${score}`;
+            }
+        });
+    }
+    draw();
+    setTimeout(gameLoop, 100);
+}
+
+initLevel();
+gameLoop();
+</script>
+</body>
+</html>
