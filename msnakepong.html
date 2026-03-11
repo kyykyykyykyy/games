@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snake Breakout: Gray Ghost Army</title>
+    <style>
+        body { 
+            background: #05050a; color: #fff; text-align: center; margin: 0; padding: 10px; 
+            font-family: 'Courier New', monospace; overflow-x: hidden; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #ui-container { 
+            display: flex; justify-content: space-around; align-items: center; 
+            background: rgba(0, 255, 255, 0.05); padding: 10px; border-radius: 5px; 
+            margin-bottom: 10px; border: 1px solid #0ff; width: 100%; max-width: 600px; box-sizing: border-box;
+        }
+        .stat-box { font-size: 16px; font-weight: bold; color: #0ff; text-shadow: 0 0 8px #0ff; cursor: pointer; }
+        #gameCanvas { 
+            background: #000; border: 2px solid #333; 
+            max-width: 100%; height: auto; touch-action: none;
+            box-shadow: 0 0 20px rgba(180, 180, 180, 0.1);
+        }
+        
+        #guide-panel {
+            width: 100%; max-width: 600px; margin-top: 15px; 
+            background: rgba(255, 255, 255, 0.05); border: 1px solid #555; 
+            border-radius: 8px; padding: 15px; text-align: left; font-size: 13px; line-height: 1.5; box-sizing: border-box;
+        }
+        .guide-title { color: #0ff; font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; text-shadow: 0 0 5px #0ff; }
+        .guide-section { margin-bottom: 12px; }
+        .guide-section h3 { margin: 0 0 5px 0; color: #ff00ff; font-size: 14px; }
+        
+        .item-list { display: flex; flex-direction: column; gap: 6px; }
+        .item-info { display: flex; align-items: center; gap: 8px; }
+        
+        .star-icon {
+            width: 0; height: 0; margin: 5px 5px 5px 0; color: transparent; position: relative; display: inline-block;
+            border-right: 10px solid transparent; border-bottom: 7px solid; border-left: 10px solid transparent; transform: rotate(35deg) scale(0.6);
+        }
+        .star-icon:before {
+            border-bottom: 8px solid; border-left: 3px solid transparent; border-right: 3px solid transparent; position: absolute; height: 0; width: 0; top: -4.5px; left: -6.5px; display: block; content: ''; transform: rotate(-35deg);
+        }
+        .star-icon:after {
+            position: absolute; display: block; color: transparent; border-right: 10px solid transparent; border-bottom: 7px solid; border-left: 10px solid transparent; top: 0.3px; left: -10.5px; width: 0; height: 0; content: ''; transform: rotate(-70deg);
+        }
+
+        .highlight { color: #ffeb3b; font-weight: bold; }
+    </style>
+</head>
+<body onload="init()">
+    <div id="ui-container">
+        <div class="stat-box" id="lvUI" onclick="skipLevel()">LV 1: HEART</div>
+        <div class="stat-box" id="scoreUI">SCORE: 0</div>
+        <div class="stat-box" id="timerUI">TIME: 60</div>
+    </div>
+    
+    <canvas id="gameCanvas" width="600" height="720"></canvas>
+    
+    <div id="guide-panel">
+        <div class="guide-title">🎮 스네이크 브레이크아웃 가이드</div>
+        
+        <div class="guide-section">
+            <h3>🕹️ 기본 조작 및 규칙</h3>
+            • <b>이동:</b> 화면 아무 곳이나 상/하/좌/우로 <b>스와이프</b> (PC는 방향키)<br>
+            • <b>목표:</b> 제한 시간(TIME) 내에 공을 튕겨 모든 블록을 부수세요.<br>
+            • <span class="highlight">공이 바닥에 떨어져도 죽지 않습니다.</span> 안심하세요!<br>
+            • <b>주의:</b> 뱀의 머리가 블록에 부딪히면 통통 튕겨 나갑니다!
+        </div>
+
+        <div class="guide-section" style="margin-bottom:0;">
+            <h3>🌟 특수 별 아이템 (뱀으로 획득)</h3>
+            <div class="item-list">
+                <div class="item-info"><div class="star-icon" style="color:#00aaff; border-bottom-color:#00aaff;"></div> <span><b>파란 별 (멀티 볼)</b>: 모든 공이 증식합니다!</span></div>
+                <div class="item-info"><div class="star-icon" style="color:#bf00ff; border-bottom-color:#bf00ff;"></div> <span><b>보라 별 (고스트 뱀)</b>: <b>반투명 회색 AI 뱀 군단</b>이 쏟아집니다!</span></div>
+                <div class="item-info"><div class="star-icon" style="color:#ffcc00; border-bottom-color:#ffcc00;"></div> <span><b>노란 별 (시간 연장)</b>: 제한 시간이 10초 늘어납니다.</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        let score = 0, timeLeft = 60, level = 1, gameActive = true, loop = null;
+        const RAINBOW = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
+        
+        let snake = { x: 300, y: 650, dx: 0, dy: 0, trail: [], targetLength: 15, size: 30 };
+        let balls = [];
+        let bricks = [];
+        let items = [];
+        let aiSnakes = []; 
+
+        const BRICK_SIZE = 28;
+        const LEVEL_NAMES = ["HEART", "RAINBOW", "RABBIT", "ALIEN", "SPACE FIGHTER"];
+        const MAPS = [
+            [[0,0,1,1,1,0,0,0,1,1,1,0,0],[0,1,1,1,1,1,0,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,1,1,1,1,0,0],[0,0,0,1,1,1,1,1,1,1,0,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0],[0,0,0,0,0,1,1,1,0,0,0,0,0],[0,0,0,0,0,0,1,0,0,0,0,0,0]],
+            [[0,0,0,0,1,1,1,1,1,0,0,0,0],[0,0,1,1,1,1,1,1,1,1,1,0,0],[0,1,1,1,0,0,0,0,0,1,1,1,0],[1,1,1,0,0,1,1,1,0,0,1,1,1],[1,1,0,0,1,1,1,1,1,0,0,1,1],[1,1,0,1,1,0,0,0,1,1,0,1,1],[1,1,0,1,1,0,1,0,1,1,0,1,1]],
+            [[0,0,1,1,0,0,0,0,0,1,1,0,0],[0,0,1,1,0,0,0,0,0,1,1,0,0],[0,0,1,1,0,0,0,0,0,1,1,0,0],[0,0,1,1,0,0,0,0,0,1,1,0,0],[0,0,1,1,1,1,1,1,1,1,1,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,0],[0,1,1,0,1,1,1,1,1,0,1,1,0],[0,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,1,1,1,1,0,1,1,1,1,0,0],[0,0,0,1,1,1,1,1,1,1,0,0,0]],
+            [[0,0,1,0,0,0,0,0,1,0,0],[0,0,0,1,0,0,0,1,0,0,0],[0,0,1,1,1,1,1,1,1,0,0],[0,1,1,0,1,1,1,0,1,1,0],[1,1,1,1,1,1,1,1,1,1,1],[1,0,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,1,0,1],[0,0,0,1,1,0,1,1,0,0,0]],
+            [[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],[0,0,0,0,0,0,1,1,1,0,0,0,0,0,0],[0,0,0,0,0,0,1,1,1,0,0,0,0,0,0],[0,0,0,0,0,1,1,1,1,1,0,0,0,0,0],[0,0,0,0,0,1,0,1,0,1,0,0,0,0,0],[0,0,1,1,0,1,1,1,1,1,0,1,1,0,0],[0,1,1,1,1,1,1,1,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,0,0,1,1,1,1,1,1,1,0,0,1,1],[1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],[0,0,0,0,0,0,1,0,1,0,0,0,0,0,0],[0,0,0,0,0,1,1,0,1,1,0,0,0,0,0]]
+        ];
+
+        function init() {
+            if(loop) cancelAnimationFrame(loop);
+            score = 0; timeLeft = 60; gameActive = true;
+            bricks = []; items = []; balls = []; aiSnakes = []; 
+            
+            const curMap = MAPS[(level-1) % MAPS.length];
+            const startX = (canvas.width - curMap[0].length * BRICK_SIZE) / 2;
+            curMap.forEach((row, r) => {
+                row.forEach((col, c) => {
+                    if(col) bricks.push({ x: startX + c * BRICK_SIZE, y: 80 + r * BRICK_SIZE, alive: true, color: RAINBOW[r % RAINBOW.length] });
+                });
+            });
+
+            snake.x = 300; snake.y = 650; snake.dx = 0; snake.dy = 0; snake.trail = [];
+            for(let i=0; i<15; i++) snake.trail.push({x:300, y:650});
+            balls.push({ x: 300, y: 450, dx: 4, dy: -4, radius: 10, speed: 5 });
+            
+            play();
+        }
+
+        const itemSpawner = setInterval(() => {
+            if(!gameActive) return;
+            const types = ['multi', 'ai', 'time'];
+            items.push({
+                x: Math.random() * (canvas.width - 40) + 20,
+                y: -20,
+                type: types[Math.floor(Math.random() * types.length)],
+                dy: 2,
+                rot: 0
+            });
+        }, 4000);
+
+        let touchStartX = 0, touchStartY = 0;
+        canvas.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false});
+        canvas.addEventListener('touchend', e => {
+            let dx = e.changedTouches[0].screenX - touchStartX;
+            let dy = e.changedTouches[0].screenY - touchStartY;
+            if (Math.abs(dx) > 20 || Math.abs(dy) > 20) {
+                if (Math.abs(dx) > Math.abs(dy)) { snake.dx = dx > 0 ? 10 : -10; snake.dy = 0; }
+                else { snake.dy = dy > 0 ? 10 : -10; snake.dx = 0; }
+            }
+        });
+
+        document.onkeydown = e => {
+            if(e.keyCode == 37) { snake.dx = -10; snake.dy = 0; }
+            else if(e.keyCode == 38) { snake.dy = -10; snake.dx = 0; }
+            else if(e.keyCode == 39) { snake.dx = 10; snake.dy = 0; }
+            else if(e.keyCode == 40) { snake.dy = 10; snake.dx = 0; }
+            else if(e.keyCode == 78) skipLevel();
+        };
+
+        function skipLevel() { level++; init(); }
+        const timerTask = setInterval(() => { if(gameActive && timeLeft > 0) timeLeft--; }, 1000);
+
+        function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx; let y = cy;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+            ctx.shadowBlur = 15; ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function play() {
+            if(timeLeft <= 0) { 
+                gameActive = false; 
+                if(confirm("TIME OVER! 다시 도전하시겠습니까?")) { level=1; init(); return; }
+                return;
+            }
+            
+            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 뱀 이동
+            snake.trail.unshift({x: snake.x, y: snake.y});
+            snake.trail.pop();
+            snake.x += snake.dx; snake.y += snake.dy;
+            
+            if(snake.x < 0) { snake.x = 0; snake.dx *= -1; }
+            if(snake.x > canvas.width - snake.size) { snake.x = canvas.width - snake.size; snake.dx *= -1; }
+            if(snake.y < 0) { snake.y = 0; snake.dy *= -1; }
+            if(snake.y > canvas.height - snake.size) { snake.y = canvas.height - snake.size; snake.dy *= -1; }
+
+            // 뱀 <-> 블록 튕김
+            bricks.forEach(br => {
+                if(br.alive && snake.x < br.x + BRICK_SIZE && snake.x + snake.size > br.x && snake.y < br.y + BRICK_SIZE && snake.y + snake.size > br.y) {
+                    let overlapX = Math.min(snake.x + snake.size - br.x, br.x + BRICK_SIZE - snake.x);
+                    let overlapY = Math.min(snake.y + snake.size - br.y, br.y + BRICK_SIZE - snake.y);
+                    if(overlapX < overlapY) { snake.x += (snake.dx > 0) ? -overlapX : overlapX; snake.dx *= -1; } 
+                    else { snake.y += (snake.dy > 0) ? -overlapY : overlapY; snake.dy *= -1; }
+                }
+            });
+
+            // 2. 고스트 뱀 군단 (회색 반투명으로 원상복구!)
+            aiSnakes.forEach((ai, index) => {
+                let target = balls[index % balls.length] || balls[0];
+                if(target) {
+                    if(ai.x < target.x - 15) ai.x += 7;
+                    else if(ai.x > target.x + 15) ai.x -= 7;
+                }
+                ai.trail.unshift({x: ai.x, y: ai.y});
+                ai.trail.pop();
+                
+                ai.trail.forEach((t, i) => {
+                    // 회색(180,180,180) 반투명 고스트 이펙트
+                    ctx.fillStyle = "rgba(180, 180, 180, " + (0.7 - i/25) + ")";
+                    ctx.fillRect(t.x, t.y, 30, 30);
+                });
+            });
+
+            // 3. 아이템 업데이트
+            items.forEach((it, idx) => {
+                it.y += it.dy;
+                it.rot += 0.05;
+                ctx.save();
+                ctx.translate(it.x + 15, it.y + 15);
+                ctx.rotate(it.rot);
+                
+                // 별 색상은 눈에 띄게 보라색 유지
+                let color = it.type === 'multi' ? '#00aaff' : it.type === 'ai' ? '#bf00ff' : '#ffcc00';
+                drawStar(0, 0, 5, 14, 6, color);
+                ctx.restore();
+
+                if(Math.hypot(snake.x + 15 - (it.x + 15), snake.y + 15 - (it.y + 15)) < 40) {
+                    if(it.type === 'multi') {
+                        let currentBalls = [...balls];
+                        currentBalls.forEach(b => {
+                            balls.push({...b, dx: -b.dx, dy: b.dy});
+                            balls.push({...b, dx: b.dx, dy: -b.dy});
+                        });
+                    } else if(it.type === 'ai') {
+                        let newAiId = Date.now() + Math.random();
+                        let newAi = { x: snake.x, y: 600, trail: [], id: newAiId };
+                        for(let i=0; i<15; i++) newAi.trail.push({x:snake.x, y:600});
+                        aiSnakes.push(newAi);
+                        
+                        setTimeout(() => {
+                            aiSnakes = aiSnakes.filter(ai => ai.id !== newAiId);
+                        }, 15000);
+
+                    } else if(it.type === 'time') {
+                        timeLeft += 10;
+                    }
+                    items.splice(idx, 1);
+                }
+            });
+
+            // 4. 공 업데이트
+            balls.forEach((b) => {
+                b.x += b.dx; b.y += b.dy;
+                if(b.x < 10 || b.x > 590) b.dx *= -1;
+                if(b.y < 10) b.dy *= -1;
+                
+                if(b.y > 710) { b.y = 710; b.dy = -Math.abs(b.speed); }
+
+                snake.trail.forEach(t => {
+                    if(b.x > t.x && b.x < t.x + snake.size && b.y > t.y && b.y < t.y + snake.size) {
+                        b.dy = -Math.abs(b.speed);
+                        b.dx += snake.dx * 0.15;
+                    }
+                });
+
+                aiSnakes.forEach(ai => {
+                    ai.trail.forEach(t => {
+                        if(b.x > t.x && b.x < t.x + 30 && b.y > t.y && b.y < t.y + 30) {
+                            b.dy = -Math.abs(b.speed);
+                        }
+                    });
+                });
+
+                bricks.forEach(br => {
+                    if(br.alive && b.x > br.x && b.x < br.x + BRICK_SIZE && b.y > br.y && b.y < br.y + BRICK_SIZE) {
+                        br.alive = false; b.dy *= -1; score += 20;
+                    }
+                });
+
+                ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, 7);
+                ctx.fillStyle = "#fff"; ctx.shadowBlur = 10; ctx.shadowColor = "#fff";
+                ctx.fill(); ctx.shadowBlur = 0;
+            });
+
+            // 5. 그리기 (뱀, 블록)
+            snake.trail.forEach((t, i) => {
+                ctx.fillStyle = RAINBOW[i % RAINBOW.length];
+                ctx.fillRect(t.x, t.y, snake.size, snake.size);
+            });
+            
+            bricks.forEach(br => {
+                if(br.alive) {
+                    ctx.fillStyle = br.color;
+                    ctx.fillRect(br.x, br.y, BRICK_SIZE - 2, BRICK_SIZE - 2);
+                }
+            });
+
+            if(bricks.length > 0 && bricks.every(br => !br.alive)) { level++; init(); }
+            
+            document.getElementById("lvUI").innerText = `LV ${level}: ${LEVEL_NAMES[(level-1)%5]}`;
+            document.getElementById("scoreUI").innerText = "SCORE: " + score;
+            document.getElementById("timerUI").innerText = "TIME: " + timeLeft;
+            
+            loop = requestAnimationFrame(play);
+        }
+    </script>
+</body>
+</html>
