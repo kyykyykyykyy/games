@@ -3,57 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>강아지 미로 - 모바일 통합 버전</title>
+    <title>강아지 미로 - 최종 완성판</title>
     <style>
         body {
             background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             display: flex; flex-direction: column; align-items: center;
             font-family: 'Segoe UI Emoji', sans-serif; margin: 0; overflow: hidden;
-            touch-action: none; /* 브라우저 기본 스크롤 방지 */
+            touch-action: none;
         }
-        #ui-container {
-            width: 100%; max-width: 600px; padding: 10px; display: flex; justify-content: space-between;
-            align-items: center; background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 10;
+        #top-ui {
+            width: 100%; max-width: 600px; 
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px; text-align: center;
+            border-bottom: 4px solid #86efac;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 20;
         }
-        .info { font-size: 18px; font-weight: bold; color: #166534; }
+        .guide-text { 
+            font-size: 14px; color: #15803d; font-weight: bold; margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        .status-text { font-size: 20px; font-weight: bold; color: #166534; }
+
         canvas {
             background: #ffffff; border: 5px solid #ffffff; border-radius: 15px;
-            margin-top: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            max-width: 95vw; max-height: 50vh; /* 모바일 화면 맞춤 */
+            margin-top: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            max-width: 90vw; max-height: 45vh;
         }
-        /* 모바일 컨트롤러 UI */
+
         #controls {
             display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 10px; margin-top: 20px; padding: 10px;
+            gap: 12px; margin-top: 15px; padding: 10px;
         }
         .btn {
-            width: 60px; height: 60px; background: white; border: 2px solid #86efac;
+            width: 55px; height: 55px; background: white; border: 2px solid #86efac;
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             font-size: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             -webkit-user-select: none; user-select: none;
         }
         .btn:active { background: #86efac; transform: scale(0.9); }
-        .up { grid-column: 2; }
-        .left { grid-column: 1; }
-        .down { grid-column: 2; }
-        .right { grid-column: 3; }
-        
-        #mobile-guide {
-            font-size: 12px; color: #15803d; margin-top: 10px; text-align: center;
-        }
+        .up { grid-column: 2; } .left { grid-column: 1; }
+        .down { grid-column: 2; } .right { grid-column: 3; }
     </style>
 </head>
 <body>
 
-<div id="ui-container">
-    <div class="info" id="status">💎 LV: 1 | 🌟 0</div>
-    <div class="info" style="font-size: 12px;">🐱피해 🦴찾기!</div>
+<div id="top-ui">
+    <div class="guide-text">
+        🐾 규칙: 🐱피해 🦴찾기!<br> 
+        🌀 워프는 **같은 색깔 위치**로 이동하며,<br>
+        이동 2초 전에 깜빡거립니다.
+    </div>
+    <div class="status-text" id="status">💎 LV: 1 | 🌟 SCORE: 0</div>
 </div>
 
 <canvas id="gameCanvas" width="600" height="600"></canvas>
-
-<div id="mobile-guide">화면을 **드래그**하거나 아래 **버튼**을 터치하세요!</div>
 
 <div id="controls">
     <div class="btn up" id="btnUp">🔼</div>
@@ -67,14 +70,19 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const statusDisplay = document.getElementById('status');
 
-const gridSize = 40;
-const cols = 15;
-const rows = 15;
+const gridSize = 40, cols = 15, rows = 15;
 let score = 0, level = 1, catSpeed = 300, portalTimer = 0;
 
-// 10종 미로 중 샘플
+// 완전히 다른 4세트의 미로 구조
 const mazeTemplates = [
-    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
+    // 1번 미로 (기본 십자형)
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+    // 2번 미로 (방사형)
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,1,0,0,0,0,0,1,0,1,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,1,0,0,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,1,0,0,0,1],[1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+    // 3번 미로 (블록형)
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,0,1,1,1,1,1,0,1,1,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,0,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
+    // 4번 미로 (미니 방 4개형)
+    [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]]
 ];
 
 let currentMaze = [], paths = [], dog = { x: 1, y: 1 }, bone = { x: 0, y: 0 };
@@ -94,7 +102,7 @@ function initLevel() {
     cats = [getUniquePath(), getUniquePath(), getUniquePath()].map(p => ({...p, dir: {x:0, y:1}}));
     refreshPortals(occupied);
     catSpeed = Math.max(80, 350 - (level * 25));
-    statusDisplay.innerText = `💎 LV: ${level} | 🌟 ${score}`;
+    statusDisplay.innerText = `💎 LV: ${level} | 🌟 SCORE: ${score}`;
     portalTimer = 0;
 }
 
@@ -151,31 +159,27 @@ function moveDog(dx, dy) {
     }
 }
 
-// 드래그 조작 변수
 let touchStartX = 0, touchStartY = 0;
 canvas.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY;
 }, false);
-
 canvas.addEventListener('touchend', e => {
-    let touchEndX = e.changedTouches[0].clientX;
-    let touchEndY = e.changedTouches[0].clientY;
-    let dx = touchEndX - touchStartX;
-    let dy = touchEndY - touchStartY;
-    
-    if (Math.abs(dx) > Math.abs(dy)) {
-        if (Math.abs(dx) > 30) moveDog(dx > 0 ? 1 : -1, 0);
-    } else {
-        if (Math.abs(dy) > 30) moveDog(0, dy > 0 ? 1 : -1);
-    }
+    let dx = e.changedTouches[0].clientX - touchStartX;
+    let dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy)) { if (Math.abs(dx) > 30) moveDog(dx > 0 ? 1 : -1, 0); }
+    else { if (Math.abs(dy) > 30) moveDog(0, dy > 0 ? 1 : -1); }
 }, false);
 
-// 버튼 조작
 document.getElementById('btnUp').onclick = () => moveDog(0, -1);
 document.getElementById('btnDown').onclick = () => moveDog(0, 1);
 document.getElementById('btnLeft').onclick = () => moveDog(-1, 0);
 document.getElementById('btnRight').onclick = () => moveDog(1, 0);
+window.addEventListener('keydown', e => {
+    if(e.key === 'ArrowUp') moveDog(0, -1);
+    if(e.key === 'ArrowDown') moveDog(0, 1);
+    if(e.key === 'ArrowLeft') moveDog(-1, 0);
+    if(e.key === 'ArrowRight') moveDog(1, 0);
+});
 
 function gameLoop() {
     portalTimer += 100;
@@ -193,7 +197,7 @@ function gameLoop() {
             }
             c.x += c.dir.x; c.y += c.dir.y;
             if(c.x === dog.x && c.y === dog.y) {
-                score -= 5; statusDisplay.innerText = `💎 LV: ${level} | 🌟 ${score}`;
+                score -= 5; statusDisplay.innerText = `💎 LV: ${level} | 🌟 SCORE: ${score}`;
             }
         });
     }
