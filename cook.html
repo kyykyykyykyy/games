@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>봉봉아 제발 한 입만 먹어줘!</title>
+    <style>
+        body { 
+            font-family: 'Malgun Gothic', sans-serif; margin: 0; height: 100vh;
+            background: linear-gradient(to bottom, transparent 60%, #8D6E63 60%, #5D4037 100%), 
+                        repeating-linear-gradient(45deg, #fff 0, #fff 20px, #f0f0f0 20px, #f0f0f0 40px); 
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .game-container { 
+            width: 480px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); border: 4px solid #ffcc00; text-align: center; overflow: hidden;
+        }
+
+        .header { background: #ffcc00; padding: 15px; margin: 0; color: #333; display: flex; justify-content: space-between; align-items: center;}
+        .header h2 { margin: 0; font-size: 20px; letter-spacing: -0.5px; } /* 제목 크기 조정 */
+        .health-bar { font-size: 15px; font-weight: bold; background: #fff; padding: 5px 10px; border-radius: 10px; color: #d32f2f; }
+        
+        .phase { padding: 20px; display: none; }
+        .phase.active { display: block; }
+
+        /* 주방 UI */
+        .bonbong-status { background: #ffe6e6; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; font-size: 14px; color: #b71c1c; border: 2px solid #ffcdd2;}
+        .inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; min-height: 70px; }
+        
+        .item { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 5px 10px; border: 2px solid #ccc; border-radius: 10px; background: #f9f9f9; transition: 0.2s; user-select: none; width: 45px;}
+        .item .emoji { font-size: 26px; }
+        .item .name { font-size: 11px; font-weight: bold; margin-top: 3px; color: #555; }
+        .item.selected { background: #c8e6c9; border-color: #4caf50; transform: scale(1.1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .cook-board { background: #fff3e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #ff9800; }
+        
+        button { background: #ff5722; color: white; border: none; padding: 10px 15px; font-size: 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 5px; transition: 0.2s; }
+        button:hover { background: #e64a19; transform: scale(1.05); }
+        .btn-maze { background: #4caf50; }
+        .btn-maze:hover { background: #388e3c; }
+
+        #result-msg { margin-top: 15px; font-size: 14px; color: #333; height: 80px; font-weight: bold; line-height: 1.4; }
+
+        /* 무한 점프 게임 UI */
+        #catch-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .timer-box { font-size: 18px; font-weight: bold; color: #d32f2f; background: #ffebee; padding: 5px 10px; border-radius: 5px;}
+        
+        #catch-board { 
+            width: 440px; height: 400px; background: linear-gradient(to bottom, #81d4fa, #b3e5fc); 
+            position: relative; overflow: hidden; border-radius: 10px; border: 3px solid #4fc3f7; margin-bottom: 10px; margin: 0 auto;
+        }
+        
+        #player {
+            position: absolute; font-size: 35px; width: 40px; height: 40px;
+            user-select: none; z-index: 10; display: flex; align-items: center; justify-content: center;
+        }
+
+        .platform {
+            position: absolute; background: #ffb74d; border-top: 4px solid #f57c00; border-radius: 5px; z-index: 5;
+        }
+        
+        .falling-item {
+            position: absolute; font-size: 25px; width: 30px; height: 30px; user-select: none; z-index: 8;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* 병원 UI */
+        #hospital-phase { background: #ffebee; color: #b71c1c; }
+        .siren { font-size: 50px; margin: 20px 0; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <h2>🐶 봉봉아 제발 한 입만 먹어줘!</h2>
+        <div class="health-bar">❤️ 건강: <span id="hp-text">100</span></div>
+    </div>
+    
+    <div id="kitchen-phase" class="phase active">
+        <div class="bonbong-status" id="bonbong-mood">봉봉이: "어이 닝겐, 밥그릇 빈 거 안 보이냐? 배고파서 현기증 난다멍." 😒</div>
+        <button class="btn-maze" onclick="startCatchGame()">🛒 시장으로 점프하러 가기 (30초)</button>
+
+        <h3>가방 속 재료 (2~5개 선택)</h3>
+        <div class="inventory" id="inventory-ui">
+            <span style="color:#999; font-size:14px; line-height: 70px;">가방이 텅 비었어요! 재료를 주워오세요.</span>
+        </div>
+
+        <div class="cook-board">
+            <p style="margin: 0 0 10px 0;">냄비 속 재료: <span id="selected-list">없음</span></p>
+            <button onclick="cook()">🔥 요리하기</button>
+        </div>
+        <div id="result-msg"></div>
+    </div>
+
+    <div id="catch-phase" class="phase">
+        <div id="catch-header">
+            <h3 style="margin: 0;">시장 지붕 타기! 🛒</h3>
+            <div class="timer-box">⏳ <span id="time-left">30</span>초</div>
+        </div>
+        <p style="font-size: 13px; margin: 5px 0; color: #d32f2f; font-weight: bold;">방향키(⬅️ ➡️) 이동 / 위쪽 화살표(⬆️) 점프!<br>🚨 떨어지면 이번 판에 모은 재료를 전부 잃습니다!</p>
+        
+        <div id="catch-board">
+            <div id="player">🐶</div>
+            </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <span style="font-weight:bold; color:#4caf50;">임시 장바구니: <span id="collected-count">0</span>개 담음</span>
+        </div>
+    </div>
+
+    <div id="hospital-phase" class="phase">
+        <div class="siren">🚨🏥🚨</div>
+        <h2>동물병원 응급실</h2>
+        <p style="font-size: 15px; font-weight: bold; margin-bottom: 20px;" id="gameover-reason"></p>
+        <p>봉봉이: "이 바보 같은 인간아!! 나 죽는다멍!!! 으악!!" 😵</p>
+        <button onclick="location.reload()">처음부터 다시 시작 (F5)</button>
+    </div>
+</div>
+
+<script>
+    let myItems = []; 
+    let tempItemsThisRun = []; 
+    let selectedIngredients = []; 
+    let health = 100;
+
+    const itemEmojis = { 
+        "소고기": "🥩", "돼지고기": "🥓", "닭고기": "🍗", 
+        "고구마": "🍠", "브로콜리": "🥦", "당근": "🥕", "연어": "🐟",
+        "포도": "🍇", "양파": "🧅", "초콜릿": "🍫"
+    };
+    const toxicItems = ["포도", "양파", "초콜릿"];
+    const allItemTypes = Object.keys(itemEmojis);
+
+    /* 대사 사전 */
+    const msgVeggieFail = [ `"너나 쳐먹어라 멍! 밥상 엎기 전에 고기 가져와!!" 💥`, `"내가 토끼냐 멍? 벽지 다 물어뜯기 전에 고기 내놔!" 🐇❌`, `"장난해? 내 훌륭한 송곳니는 풀이나 씹으라고 있는 게 아니다멍!" 🤬` ];
+    const msgVeggieHidden = [ `"아오, 풀때기 숨긴 거 보소. 고기 냄새 나니까 억지로 먹어준다." 😒`, `"뭔가 아삭거리는 기분 나쁜 식감이 있지만... 참는다멍." 🥦🥩`, `"주인장, 다음부턴 초록색이랑 주황색은 빼라. 경고했다멍." 😑` ];
+    const msgMeatBomb = [ `"크~ 이 집 노예 일 잘하네. 내일도 이렇게 바쳐라멍!" 🍖`, `"그래, 밥은 이래야지! 꼬리 프로펠러 풀가동!!" 🚁💖`, `"육즙 보소... 합격! 특별히 배 긁는 걸 허락해주지." 🐕💨` ];
+    const msgSweet = [ `"켁켁... 목 막혀 죽일 셈이냐 멍! 당장 물 가져와!" 🍠💧`, `"달아서 좋긴 한데... 혓바닥에 다 달라붙는다멍! 쩝쩝..." 👅`, `"닝겐, 센스 없게 고구마만 주냐! 동치미도 안 가져오고!" 😤` ];
+    const msgNormal = [ `"뭐 이딴 걸 밥이라고... 배고프니 일단 먹는다." 🙄`, `"그럭저럭 넘길 만 하네. 내일은 더 맛있는 걸로 준비해라." 🍽️`, `"흥, 니 정성이 갸륵해서 한 입 먹어준다멍." 🐶` ];
+    const msgSurfAndTurf = [ `"소고기에 연어?! 닝겐, 오늘 로또 맞았냐멍?! 사랑한다멍!!" 😍✨`, `"이것이 바로 미슐랭 3스타! 그릇까지 핥아먹겠다멍! 혀어억!" 👅💦` ];
+
+    function getRandomMsg(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function updateHP(amount) {
+        health += amount;
+        if (health > 100) health = 100;
+        document.getElementById('hp-text').innerText = health;
+
+        if (health <= 0) {
+            document.getElementById('gameover-reason').innerText = "건강 관리에 실패해서 봉봉이가 병원에 실려갔습니다!";
+            switchPhase('hospital-phase');
+        }
+    }
+
+    function switchPhase(phaseId) {
+        document.querySelectorAll('.phase').forEach(el => el.classList.remove('active'));
+        document.getElementById(phaseId).classList.add('active');
+    }
+
+    /* ================= 주방 시스템 ================= */
+    function updateInventoryUI() {
+        const invenUI = document.getElementById('inventory-ui');
+        invenUI.innerHTML = ''; 
+        selectedIngredients = [];
+        document.getElementById('selected-list').innerText = "없음";
+
+        if (myItems.length === 0) {
+            invenUI.innerHTML = '<span style="color:#999; font-size:14px; line-height: 70px;">가방이 텅 비었어요. 빨리 밥 안 차리고 뭐하냐멍!</span>';
+            return;
+        }
+
+        myItems.forEach((item, index) => {
+            let div = document.createElement('div');
+            div.className = 'item';
+            div.innerHTML = `<div class="emoji">${itemEmojis[item]}</div><div class="name">${item}</div>`;
+            div.onclick = function() { selectItem(this, item, index); };
+            invenUI.appendChild(div);
+        });
+    }
+
+    function selectItem(element, itemName, index) {
+        let existingIndex = selectedIngredients.findIndex(val => val.index === index);
+        if (existingIndex > -1) {
+            selectedIngredients.splice(existingIndex, 1);
+            element.classList.remove('selected');
+        } else {
+            if (selectedIngredients.length < 5) { 
+                selectedIngredients.push({name: itemName, index: index});
+                element.classList.add('selected');
+            } else { alert("냄비가 꽉 찼어요!"); }
+        }
+        let names = selectedIngredients.map(val => itemEmojis[val.name]);
+        document.getElementById('selected-list').innerText = names.length > 0 ? names.join(' + ') : "없음";
+    }
+
+    function cook() {
+        let count = selectedIngredients.length;
+        if (count < 2 || count > 5) {
+            alert("요리하려면 재료를 2~5개 넣어주세요.");
+            return;
+        }
+
+        let hasToxic = selectedIngredients.find(item => toxicItems.includes(item.name));
+        if (hasToxic) {
+            document.getElementById('gameover-reason').innerText = `미쳤습니까 휴먼?! 강아지에게 치명적인 맹독 [${hasToxic.name}]을(를) 먹였습니다!`;
+            switchPhase('hospital-phase');
+            return;
+        }
+
+        let counts = { "소고기": 0, "돼지고기": 0, "닭고기": 0, "고구마": 0, "브로콜리": 0, "당근": 0, "연어": 0 };
+        selectedIngredients.forEach(item => { if(counts[item.name] !== undefined) counts[item.name]++; });
+
+        let protein = counts["소고기"] + counts["돼지고기"] + counts["닭고기"] + counts["연어"];
+        let veggie = counts["브로콜리"] + counts["당근"];
+        let sweet = counts["고구마"];
+
+        let dishName = ""; let reaction = ""; let hpChange = 0;
+
+        if (counts["소고기"] > 0 && counts["연어"] > 0 && veggie === 0) {
+            dishName = "최고급 서프 앤 터프 특식"; reaction = getRandomMsg(msgSurfAndTurf) + ` (건강 -5, 기분 최고!)`; hpChange = -5;
+        } else if (veggie > protein && veggie > 0) {
+            dishName = "초록빛 풀때기 범벅"; reaction = getRandomMsg(msgVeggieFail) + ` (스트레스! 건강 -5)`; hpChange = -5;
+        } else if (veggie > 0 && protein >= veggie) {
+            dishName = "야채 쏙 숨긴 고기완자"; reaction = getRandomMsg(msgVeggieHidden) + ` (균형 잡힌 식단! 건강 +10)`; hpChange = 10;
+        } else if (protein === count) {
+            dishName = "단백질 폭탄 파티"; reaction = getRandomMsg(msgMeatBomb) + ` (비만 경고! 건강 -15)`; hpChange = -15;
+        } else if (sweet === count) {
+            dishName = "퍽퍽한 고구마 뭉치"; reaction = getRandomMsg(msgSweet) + ` (건강 -5)`; hpChange = -5;
+        } else {
+            dishName = "대충 쓰까먹는 밥"; reaction = getRandomMsg(msgNormal) + ` (건강 변화 없음)`; hpChange = 0;
+        }
+
+        if (counts["돼지고기"] > 0) {
+            reaction += `<br><span style="color:#d32f2f; font-size:13px;">🚨 싼맛 돼지고기 탓에 배탈이 났다! (추가 건강 -10)</span>`;
+            hpChange -= 10;
+        }
+
+        updateHP(hpChange);
+        document.getElementById('result-msg').innerHTML = `<span style="color:#e64a19; font-size:16px;">[ ${dishName} ]</span> 완성!<br>${reaction}`;
+
+        selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
+        updateInventoryUI();
+    }
+
+    /* ================= 무한 점프 시스템 ================= */
+    let pX = 200, pY = 250; 
+    let vX = 0, vY = 0; 
+    let gravity = 0.8; 
+    let jumpPower = -13.5; 
+    let keys = {};
+    
+    let collectedThisRun = 0;
+    let platforms = [];
+    let gameItems = [];
+    let timeLeft = 30;
+    let gameInterval, timerInterval;
+    
+    const boardW = 440, boardH = 400;
+
+    document.addEventListener('keydown', e => {
+        if(["ArrowLeft", "ArrowRight", "ArrowUp"].includes(e.key)) {
+            keys[e.key] = true;
+            if (document.getElementById('catch-phase').classList.contains('active')) e.preventDefault(); 
+        }
+    });
+    document.addEventListener('keyup', e => {
+        if(["ArrowLeft", "ArrowRight", "ArrowUp"].includes(e.key)) keys[e.key] = false;
+    });
+
+    function spawnPlatform(y) {
+        let w = 70 + Math.random() * 50; 
+        let x = Math.random() * (boardW - w);
+        
+        let platEl = document.createElement('div');
+        platEl.className = 'platform';
+        platEl.style.width = w + 'px';
+        platEl.style.height = '15px';
+        document.getElementById('catch-board').appendChild(platEl);
+        
+        platforms.push({ x: x, y: y, w: w, el: platEl });
+
+        if (Math.random() < 0.7) {
+            let type = allItemTypes[Math.floor(Math.random() * allItemTypes.length)];
+            let itemEl = document.createElement('div');
+            itemEl.className = 'falling-item';
+            itemEl.innerText = itemEmojis[type];
+            document.getElementById('catch-board').appendChild(itemEl);
+            
+            gameItems.push({ type: type, x: x + w/2 - 15, y: y - 30, el: itemEl });
+        }
+    }
+
+    function startCatchGame() {
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+        
+        keys = {}; pX = 200; pY = 250; vX = 0; vY = 0;
+        collectedThisRun = 0; timeLeft = 30;
+        platforms = []; gameItems = [];
+        tempItemsThisRun = []; 
+
+        document.getElementById('collected-count').innerText = collectedThisRun;
+        document.getElementById('time-left').innerText = timeLeft;
+        document.getElementById('result-msg').innerHTML = ''; 
+
+        const board = document.getElementById('catch-board');
+        board.innerHTML = '<div id="player">🐶</div>';
+
+        let startPlat = document.createElement('div');
+        startPlat.className = 'platform';
+        startPlat.style.width = boardW + 'px';
+        startPlat.style.height = '20px';
+        board.appendChild(startPlat);
+        platforms.push({ x: 0, y: 330, w: boardW, el: startPlat });
+
+        let currentY = 230;
+        while(currentY > -100) {
+            spawnPlatform(currentY);
+            currentY -= (40 + Math.random() * 40); 
+        }
+
+        switchPhase('catch-phase');
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('time-left').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                endCatchGame("타임오버! 모은 장바구니를 무사히 들고 집에 갑니다. 🏃‍♂️💨", true);
+            }
+        }, 1000);
+
+        gameInterval = setInterval(updatePhysics, 20);
+    }
+
+    function endCatchGame(msg, isSuccess) {
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+        alert(msg);
+        
+        if (isSuccess) {
+            myItems = myItems.concat(tempItemsThisRun);
+        }
+        
+        tempItemsThisRun = []; 
+        updateInventoryUI();
+        switchPhase('kitchen-phase');
+    }
+
+    function updatePhysics() {
+        if (keys["ArrowLeft"]) vX = -7;
+        else if (keys["ArrowRight"]) vX = 7;
+        else vX = 0; 
+
+        vY += gravity; 
+        let onGround = false;
+
+        platforms.forEach(p => {
+            if (vY > 0 && pY + 40 >= p.y && pY + 40 - vY <= p.y) {
+                if (pX + 25 > p.x && pX + 15 < p.x + p.w) { 
+                    pY = p.y - 40;
+                    vY = 0;
+                    onGround = true;
+                }
+            }
+        });
+
+        if (keys["ArrowUp"] && onGround) {
+            vY = jumpPower;
+        }
+
+        pX += vX; pY += vY;
+
+        if (pX < 0) pX = 0;
+        if (pX > boardW - 40) pX = boardW - 40;
+
+        if (pY < 180) {
+            let diff = 180 - pY;
+            pY = 180;
+            platforms.forEach(p => p.y += diff);
+            gameItems.forEach(i => i.y += diff);
+        }
+
+        document.getElementById('player').style.left = pX + 'px';
+        document.getElementById('player').style.top = pY + 'px';
+
+        platforms.forEach(p => { p.el.style.left = p.x + 'px'; p.el.style.top = p.y + 'px'; });
+        gameItems.forEach(i => { i.el.style.left = i.x + 'px'; i.el.style.top = i.y + 'px'; });
+
+        for (let i = gameItems.length - 1; i >= 0; i--) {
+            let item = gameItems[i];
+            if (item.y + 30 > pY && item.y < pY + 40 && item.x + 30 > pX && item.x < pX + 40) {
+                tempItemsThisRun.push(item.type);
+                collectedThisRun++;
+                document.getElementById('collected-count').innerText = collectedThisRun;
+                
+                item.el.remove();
+                gameItems.splice(i, 1);
+            }
+        }
+
+        platforms = platforms.filter(p => {
+            if (p.y > boardH) { p.el.remove(); return false; } return true;
+        });
+        gameItems = gameItems.filter(i => {
+            if (i.y > boardH) { i.el.remove(); return false; } return true;
+        });
+
+        let minY = Math.min(...platforms.map(p => p.y));
+        if (minY > 50) {
+            spawnPlatform(minY - (40 + Math.random() * 40)); 
+        }
+
+        if (pY > boardH) {
+            endCatchGame("앗! 발을 헛디뎠다! 모은 재료를 다 쏟고 쫓겨났습니다. 😭", false);
+        }
+    }
+</script>
+
+</body>
+</html>
