@@ -64,7 +64,7 @@
         window.location.href = 'index.html';
     }
 
-    let maxStress = 100 - (bongbongData.collectedToys.length * 10);
+    // 초기 스탯 텍스트 설정
     document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     document.getElementById('hp-text').innerText = bongbongData.health;
     
@@ -80,6 +80,7 @@
 
     function renderToySelection() {
         const listDiv = document.getElementById('toy-list');
+        listDiv.innerHTML = '';
         TOYS.forEach(toy => {
             const isCollected = bongbongData.collectedToys.includes(toy.id);
             const btn = document.createElement('button');
@@ -140,6 +141,7 @@
     }
 
     function play() {
+        // 🔥 시간 초과 시 실패 페널티 및 킹받는 대사 추가
         if(timeLeft <= 0) { 
             gameActive = false; 
             const failToyQuotes = [
@@ -150,7 +152,14 @@
                 "\"어휴, 저 한심한 뒷모습 좀 봐. 내일은 좀 제대로 된 노예를 구해봐야겠어.\""
             ];
             const randomToyFailQuote = failToyQuotes[Math.floor(Math.random() * failToyQuotes.length)];
-            alert(`⏳ 시간 초과!\n\n봉봉이: ${randomToyFailQuote}`);
+            alert(`⏳ 시간 초과 실패...\n\n봉봉이: ${randomToyFailQuote}\n\n(스트레스 +10 🚨)`);
+            
+            bongbongData.stress += 10;
+            let maxStress = 100 - (bongbongData.collectedToys.length * 10);
+            if(bongbongData.stress > maxStress) bongbongData.stress = maxStress;
+            bongbongData.toyLastPlayed = today; // 실패해도 오늘 기회 날아감
+
+            localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
             window.location.href = 'index.html'; 
             return; 
         }
@@ -198,6 +207,7 @@
         snake.trail.forEach((t, i) => { ctx.fillStyle = currentToy.color; ctx.beginPath(); ctx.arc(t.x + snake.size/2, t.y + snake.size/2, snake.size/2, 0, Math.PI*2); ctx.fill(); });
         bricks.forEach(br => { if(br.alive) { ctx.fillStyle = br.color; ctx.beginPath(); ctx.roundRect(br.x + 2, br.y + 2, BRICK_SIZE - 4, BRICK_SIZE - 4, 6); ctx.fill(); } });
 
+        // 성공 클리어 로직
         if(bricks.length > 0 && bricks.every(br => !br.alive)) { 
             gameActive = false;
             setTimeout(() => {
