@@ -40,7 +40,7 @@
 
     <div id="top-ui">
         <div class="guide-text">
-            🐾 규칙: 🐱피해 🦴찾기! (해당 레벨의 뼈다귀 찾기)<br> 
+            🐾 규칙: 🐱피해 🦴찾기! (고양이 닿으면 페널티!)<br> 
             🌀 워프는 2초 전 깜빡! <span style="color: #ef4444;">레벨업 시 워프 추가!</span>
         </div>
         <div class="status-text" id="status">💎 현재 레벨 도전 중...</div>
@@ -58,7 +58,7 @@
         </div>
     </div>
 
-    <button class="btn-home" onclick="goHome()">🏠 산책 그만하고 집으로 돌아가기</button>
+    <button class="btn-home" onclick="goHome()">🏠 산책 포기하고 집으로 돌아가기</button>
 </div>
 
 <script>
@@ -80,7 +80,7 @@ function goHome() { window.location.href = 'index.html'; }
 const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
 const joystickBase = document.getElementById('joystick-base'); const joystickStick = document.getElementById('joystick-stick');
 const gridSize = 40, cols = 15, rows = 15;
-let score = 0, catSpeed = 500, portalTimer = 0, catMoveTimer = 0;
+let catSpeed = 500, portalTimer = 0, catMoveTimer = 0, gameActive = true;
 
 const mazeTemplates = [
     [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,1,0,0,0,0,0,1,0,1],[1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],[1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],[1,0,1,1,1,1,1,0,1,0,1,1,1,1,1],[1,0,0,0,0,0,1,0,1,0,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],
@@ -107,7 +107,7 @@ function initLevel() {
     
     refreshPortals(occupied);
     const speedMap = [500, 400, 300, 200, 150]; catSpeed = speedMap[level - 1] || 150; 
-    portalTimer = 0; catMoveTimer = 0;
+    portalTimer = 0; catMoveTimer = 0; gameActive = true;
 }
 
 function refreshPortals(fixedOccupied = null) {
@@ -141,13 +141,15 @@ function draw() {
 }
 
 function moveDog(dx, dy) {
+    if(!gameActive) return;
     let nx = dog.x + dx, ny = dog.y + dy;
     if(nx >= 0 && nx < cols && ny >= 0 && ny < rows && currentMaze[ny][nx] === 0) {
         dog.x = nx; dog.y = ny; footprints.push({x: dog.x, y: dog.y}); if(footprints.length > 10) footprints.shift();
         portals.forEach(p => { if(dog.x === p.a.x && dog.y === p.a.y) { dog.x = p.b.x; dog.y = p.b.y; } else if(dog.x === p.b.x && dog.y === p.b.y) { dog.x = p.a.x; dog.y = p.a.y; } });
 
+        // 성공 클리어
         if(dog.x === bone.x && dog.y === bone.y) { 
-            draw();
+            gameActive = false; draw();
             setTimeout(() => {
                 const walkQuotes = [
                     "\"흥, 나 사실 고양이 따위 다 이길 수 있는데 이번만 봐준거다 멍!\"",
@@ -199,6 +201,7 @@ window.addEventListener('keydown', e => { if(e.key === 'ArrowUp') moveDog(0, -1)
 
 let lastJoystickMoveTime = 0; const joystickMoveInterval = 200;
 function gameLoop() {
+    if(!gameActive) return;
     portalTimer += 100; if (portalTimer >= 7000) { refreshPortals(); portalTimer = 0; }
     if (joystickData.isDragging && joystickData.moveRequest) {
         const currentTime = Date.now();
@@ -218,8 +221,9 @@ function gameLoop() {
             }
             c.x += c.dir.x; c.y += c.dir.y;
             
-            // 고양이에게 닿아서 실패 시
-            if(c.x === dog.x && c.y === dog.y) {
+            // 🔥 고양이 충돌 페널티 로직 추가
+            if(c.x === dog.x && c.y === dog.y && gameActive) {
+                gameActive = false;
                 const failWalkQuotes = [
                     "\"푸흡, 고작 고양이 한 마리 못 피해서 산책을 망치냐 멍? 수준하고는...\"",
                     "\"닝겐, 네 다리는 장식이냐멍? 나까지 길 잃게 만들다니 정말 대단하다.\"",
@@ -228,13 +232,22 @@ function gameLoop() {
                     "\"이게 다 네가 어설프게 리드줄을 잡아서 그런 거다! 내 탓 하지 마라 멍!\""
                 ];
                 const randomFailQuote = failWalkQuotes[Math.floor(Math.random() * failWalkQuotes.length)];
-                alert(`🌳 산책 실패...\n\n봉봉이: ${randomFailQuote}`);
+                alert(`🌳 산책 실패...\n\n봉봉이: ${randomFailQuote}\n\n(건강 -10, 스트레스 +10 🚨)`);
+                
+                bongbongData.health -= 10;
+                bongbongData.stress += 10;
+                let maxStress = 100 - ((bongbongData.collectedToys || []).length * 10);
+                if(bongbongData.health < 0) bongbongData.health = 0;
+                if(bongbongData.stress > maxStress) bongbongData.stress = maxStress;
+                
+                bongbongData.walkLastPlayed = today; // 실패해도 오늘 기회 소진
+                localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
                 window.location.href = 'index.html';
             }
         });
         catMoveTimer = 0;
     }
-    draw(); setTimeout(gameLoop, 100);
+    if(gameActive) { draw(); setTimeout(gameLoop, 100); }
 }
 window.addEventListener('resize', initJoystick); initLevel(); initJoystick(); gameLoop();
 </script>
