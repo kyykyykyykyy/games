@@ -18,9 +18,11 @@
         canvas { background: #e0f7fa; border: 3px solid #80deea; border-radius: 10px; margin: 10px auto; display: block; width: 90%; max-width: 400px; aspect-ratio: 6 / 7.2; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); }
         .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: auto;}
         
-        #selection-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fffcf2; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 40px; box-sizing: border-box; }
+        /* 💡 수정된 부분: absolute를 빼고 자연스럽게 배치되도록 수정 */
+        #selection-screen { padding: 30px 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #selection-screen h3 { color: #e65100; font-size: 20px; margin-bottom: 20px; }
-        .toy-btn { width: 80%; padding: 15px; margin: 8px 0; font-size: 16px; font-weight: bold; color: #333; border: 3px solid #ccc; border-radius: 15px; background: #fff; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        #toy-list { width: 100%; display: flex; flex-direction: column; align-items: center; }
+        .toy-btn { width: 90%; padding: 15px; margin: 8px 0; font-size: 16px; font-weight: bold; color: #333; border: 3px solid #ccc; border-radius: 15px; background: #fff; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .toy-btn:hover:not(.disabled) { transform: scale(1.05); }
         .toy-btn.disabled { opacity: 0.4; background: #eee; cursor: not-allowed; text-decoration: line-through; border-color: #aaa;}
     </style>
@@ -40,10 +42,10 @@
         <h3>🎁 오늘 구할 장난감을 고르세요!</h3>
         <p style="font-size:13px; color:#555; margin-top:-10px;">(수집 시 최대 스트레스 한도 10 감소)</p>
         <div id="toy-list"></div>
-        <button class="btn-home" style="margin-top: auto;" onclick="goHome()">🏠 돌아가기</button>
+        <button class="btn-home" style="margin-top: 20px;" onclick="goHome()">🏠 돌아가기</button>
     </div>
 
-    <div id="game-ui" style="display: none;">
+    <div id="game-ui" style="display: none; flex-direction: column;">
         <div id="top-ui">
             <div class="stat-box" id="toyUI">목표: ?</div>
             <div class="stat-box" id="scoreUI">점수: 0</div>
@@ -59,12 +61,12 @@
     let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, collectedToys: [], toyLastPlayed: "" };
     if (!bongbongData.collectedToys) bongbongData.collectedToys = []; 
 
+    // 하루 1번 제한
     if (bongbongData.toyLastPlayed === today) {
         alert("오늘은 이미 장난감을 구했어요! 내일 다시 오세요!");
         window.location.href = 'index.html';
     }
 
-    // 초기 스탯 텍스트 설정
     document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     document.getElementById('hp-text').innerText = bongbongData.health;
     
@@ -94,20 +96,21 @@
 
     function goHome() { window.location.href = 'index.html'; }
 
+    // 게임 시작 시 화면 전환 로직
+    function startToyGame(selectedToy) {
+        currentToy = selectedToy;
+        document.getElementById('selection-screen').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'flex';
+        document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
+        init();
+    }
+
     const canvas = document.getElementById("gameCanvas"); const ctx = canvas.getContext("2d");
     let score = 0, timeLeft = 60, gameActive = true, loop = null;
     let snake = { x: 300, y: 650, dx: 0, dy: 0, trail: [], targetLength: 15, size: 30 };
     let balls = [], bricks = [], items = [], aiSnakes = []; 
     const BRICK_SIZE = 28;
     const MAPS = [[[0,0,1,1,1,0,0,0,1,1,1,0,0],[0,1,1,1,1,1,0,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,1,1,1,1,0,0],[0,0,0,1,1,1,1,1,1,1,0,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0],[0,0,0,0,0,1,1,1,0,0,0,0,0],[0,0,0,0,0,0,1,0,0,0,0,0,0]]];
-
-    function startToyGame(selectedToy) {
-        currentToy = selectedToy;
-        document.getElementById('selection-screen').style.display = 'none';
-        document.getElementById('game-ui').style.display = 'block';
-        document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
-        init();
-    }
 
     function init() {
         if(loop) cancelAnimationFrame(loop); score = 0; timeLeft = 60; gameActive = true; bricks = []; items = []; balls = []; aiSnakes = []; 
@@ -141,7 +144,7 @@
     }
 
     function play() {
-        // 🔥 시간 초과 시 실패 페널티 및 킹받는 대사 추가
+        // 🔥 실패 페널티 추가
         if(timeLeft <= 0) { 
             gameActive = false; 
             const failToyQuotes = [
@@ -157,7 +160,7 @@
             bongbongData.stress += 10;
             let maxStress = 100 - (bongbongData.collectedToys.length * 10);
             if(bongbongData.stress > maxStress) bongbongData.stress = maxStress;
-            bongbongData.toyLastPlayed = today; // 실패해도 오늘 기회 날아감
+            bongbongData.toyLastPlayed = today; 
 
             localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
             window.location.href = 'index.html'; 
