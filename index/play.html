@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>봉봉이 장난감 구하기!</title>
+    <style>
+        body { font-family: 'Malgun Gothic', 'Segoe UI Emoji', sans-serif; margin: 0; height: 100vh; background: linear-gradient(135deg, #fff3e0, #ffe0b2); display: flex; align-items: center; justify-content: center; overscroll-behavior-y: contain; touch-action: none; user-select: none; }
+        .game-container { width: 100%; max-width: 480px; box-sizing: border-box; background: rgba(255, 255, 255, 0.95); border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 4px solid #ffb74d; text-align: center; overflow: hidden; margin: 10px; display: flex; flex-direction: column; position: relative; }
+        .header { background: #ffb74d; padding: 15px; margin: 0; color: #5d4037; display: flex; justify-content: space-between; align-items: center;}
+        .header h2 { margin: 0; font-size: 18px; letter-spacing: -0.5px; } 
+        .stats { display: flex; gap: 5px; }
+        .health-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #d32f2f; }
+        .stress-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #6c5ce7; }
+        
+        #top-ui { display: flex; justify-content: space-around; align-items: center; background: #fff8e1; padding: 10px; border-bottom: 2px dashed #ffcc80; }
+        .stat-box { font-size: 15px; font-weight: bold; color: #e65100; }
+        canvas { background: #e0f7fa; border: 3px solid #80deea; border-radius: 10px; margin: 10px auto; display: block; width: 90%; max-width: 400px; aspect-ratio: 6 / 7.2; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); }
+        .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: auto;}
+        
+        #selection-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #fffcf2; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 40px; box-sizing: border-box; }
+        #selection-screen h3 { color: #e65100; font-size: 20px; margin-bottom: 20px; }
+        .toy-btn { width: 80%; padding: 15px; margin: 8px 0; font-size: 16px; font-weight: bold; color: #333; border: 3px solid #ccc; border-radius: 15px; background: #fff; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .toy-btn:hover:not(.disabled) { transform: scale(1.05); }
+        .toy-btn.disabled { opacity: 0.4; background: #eee; cursor: not-allowed; text-decoration: line-through; border-color: #aaa;}
+    </style>
+</head>
+<body onload="renderToySelection()">
+
+<div class="game-container">
+    <div class="header">
+        <h2>🎾 장난감 구하기!</h2>
+        <div class="stats">
+            <div class="stress-bar">⚡ 스트레스: <span id="stress-text">50</span></div>
+            <div class="health-bar">❤️ 건강: <span id="hp-text">50</span></div>
+        </div>
+    </div>
+
+    <div id="selection-screen">
+        <h3>🎁 오늘 구할 장난감을 고르세요!</h3>
+        <p style="font-size:13px; color:#555; margin-top:-10px;">(수집 시 최대 스트레스 한도 10 감소)</p>
+        <div id="toy-list"></div>
+        <button class="btn-home" style="margin-top: auto;" onclick="goHome()">🏠 돌아가기</button>
+    </div>
+
+    <div id="game-ui" style="display: none;">
+        <div id="top-ui">
+            <div class="stat-box" id="toyUI">목표: ?</div>
+            <div class="stat-box" id="scoreUI">점수: 0</div>
+            <div class="stat-box" id="timerUI">⏳ 60초</div>
+        </div>
+        <canvas id="gameCanvas" width="600" height="720"></canvas>
+        <button class="btn-home" onclick="goHome()">🏠 놀이 포기하고 집에 가기</button>
+    </div>
+</div>
+
+<script>
+    const today = new Date().toISOString().split('T')[0];
+    let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, collectedToys: [], toyLastPlayed: "" };
+    if (!bongbongData.collectedToys) bongbongData.collectedToys = []; 
+
+    if (bongbongData.toyLastPlayed === today) {
+        alert("오늘은 이미 장난감을 구했어요! 내일 다시 오세요!");
+        window.location.href = 'index.html';
+    }
+
+    let maxStress = 100 - (bongbongData.collectedToys.length * 10);
+    document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
+    document.getElementById('hp-text').innerText = bongbongData.health;
+    
+    const TOYS = [
+        { id: 0, name: "핑크빛 딸기 상자", color: "#ffadad", emoji: "🍓" },
+        { id: 1, name: "노란빛 치즈 상자", color: "#fdffb6", emoji: "🧀" },
+        { id: 2, name: "초록빛 메론 상자", color: "#caffbf", emoji: "🍈" },
+        { id: 3, name: "하늘빛 소다 상자", color: "#9bf6ff", emoji: "🥤" },
+        { id: 4, name: "보라빛 포도 상자", color: "#bdb2ff", emoji: "🍇" }
+    ];
+
+    let currentToy = null;
+
+    function renderToySelection() {
+        const listDiv = document.getElementById('toy-list');
+        TOYS.forEach(toy => {
+            const isCollected = bongbongData.collectedToys.includes(toy.id);
+            const btn = document.createElement('button');
+            btn.className = `toy-btn ${isCollected ? 'disabled' : ''}`;
+            btn.style.borderColor = toy.color;
+            btn.innerHTML = `${toy.emoji} ${toy.name} ${isCollected ? '(보유중)' : ''}`;
+            if (!isCollected) btn.onclick = () => startToyGame(toy);
+            listDiv.appendChild(btn);
+        });
+    }
+
+    function goHome() { window.location.href = 'index.html'; }
+
+    const canvas = document.getElementById("gameCanvas"); const ctx = canvas.getContext("2d");
+    let score = 0, timeLeft = 60, gameActive = true, loop = null;
+    let snake = { x: 300, y: 650, dx: 0, dy: 0, trail: [], targetLength: 15, size: 30 };
+    let balls = [], bricks = [], items = [], aiSnakes = []; 
+    const BRICK_SIZE = 28;
+    const MAPS = [[[0,0,1,1,1,0,0,0,1,1,1,0,0],[0,1,1,1,1,1,0,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,1,1,1,1,0,0],[0,0,0,1,1,1,1,1,1,1,0,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0],[0,0,0,0,0,1,1,1,0,0,0,0,0],[0,0,0,0,0,0,1,0,0,0,0,0,0]]];
+
+    function startToyGame(selectedToy) {
+        currentToy = selectedToy;
+        document.getElementById('selection-screen').style.display = 'none';
+        document.getElementById('game-ui').style.display = 'block';
+        document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
+        init();
+    }
+
+    function init() {
+        if(loop) cancelAnimationFrame(loop); score = 0; timeLeft = 60; gameActive = true; bricks = []; items = []; balls = []; aiSnakes = []; 
+        const curMap = MAPS[0]; 
+        const startX = (canvas.width - curMap[0].length * BRICK_SIZE) / 2;
+        curMap.forEach((row, r) => { row.forEach((col, c) => { if(col) bricks.push({ x: startX + c * BRICK_SIZE, y: 80 + r * BRICK_SIZE, alive: true, color: currentToy.color }); }); });
+        snake.x = 300; snake.y = 650; snake.dx = 0; snake.dy = 0; snake.trail = []; for(let i=0; i<15; i++) snake.trail.push({x:300, y:650});
+        balls.push({ x: 300, y: 450, dx: 4, dy: -4, radius: 12, speed: 5 });
+        play();
+    }
+
+    const itemSpawner = setInterval(() => {
+        if(!gameActive) return;
+        items.push({ x: Math.random() * (canvas.width - 40) + 20, y: -20, type: ['multi', 'ai', 'time'][Math.floor(Math.random() * 3)], dy: 2, rot: 0 });
+    }, 4000);
+
+    let touchStartX = 0, touchStartY = 0;
+    canvas.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false});
+    canvas.addEventListener('touchend', e => {
+        let dx = e.changedTouches[0].screenX - touchStartX; let dy = e.changedTouches[0].screenY - touchStartY;
+        if (Math.abs(dx) > 20 || Math.abs(dy) > 20) { if (Math.abs(dx) > Math.abs(dy)) { snake.dx = dx > 0 ? 10 : -10; snake.dy = 0; } else { snake.dy = dy > 0 ? 10 : -10; snake.dx = 0; } }
+    });
+    document.onkeydown = e => { if(e.keyCode == 37) { snake.dx = -10; snake.dy = 0; } else if(e.keyCode == 38) { snake.dy = -10; snake.dx = 0; } else if(e.keyCode == 39) { snake.dx = 10; snake.dy = 0; } else if(e.keyCode == 40) { snake.dy = 10; snake.dx = 0; } };
+
+    const timerTask = setInterval(() => { if(gameActive && timeLeft > 0) timeLeft--; }, 1000);
+
+    function drawStar(cx, cy, spikes, outerRadius, innerRadius, color) {
+        let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes; ctx.beginPath(); ctx.moveTo(cx, cy - outerRadius);
+        for (let i = 0; i < spikes; i++) { x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius; ctx.lineTo(x, y); rot += step; x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius; ctx.lineTo(x, y); rot += step; }
+        ctx.lineTo(cx, cy - outerRadius); ctx.closePath(); ctx.shadowBlur = 10; ctx.shadowColor = color; ctx.fillStyle = color; ctx.fill(); ctx.shadowBlur = 0;
+    }
+
+    function play() {
+        if(timeLeft <= 0) { 
+            gameActive = false; 
+            const failToyQuotes = [
+                "\"내 장난감 하나 못 구해서 빈손으로 오냐? 진짜 밥값 못하는 닝겐이네.\"",
+                "\"공 튕기는 꼬락서니 보니 오늘 간식도 다 틀렸군. 저리 비켜라, 내가 하리?\"",
+                "\"쯧쯧... 손가락이 잭스냐멍? 장난감은커녕 먼지만 폴폴 날리고 있네.\"",
+                "\"이건 게임이 어려운 게 아니라 네 지능이 문제인 거다. 팩트 폭격 미안하다멍!\"",
+                "\"어휴, 저 한심한 뒷모습 좀 봐. 내일은 좀 제대로 된 노예를 구해봐야겠어.\""
+            ];
+            const randomToyFailQuote = failToyQuotes[Math.floor(Math.random() * failToyQuotes.length)];
+            alert(`⏳ 시간 초과!\n\n봉봉이: ${randomToyFailQuote}`);
+            window.location.href = 'index.html'; 
+            return; 
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        snake.trail.unshift({x: snake.x, y: snake.y}); snake.trail.pop(); snake.x += snake.dx; snake.y += snake.dy;
+        if(snake.x < 0) { snake.x = 0; snake.dx *= -1; } if(snake.x > canvas.width - snake.size) { snake.x = canvas.width - snake.size; snake.dx *= -1; }
+        if(snake.y < 0) { snake.y = 0; snake.dy *= -1; } if(snake.y > canvas.height - snake.size) { snake.y = canvas.height - snake.size; snake.dy *= -1; }
+
+        bricks.forEach(br => {
+            if(br.alive && snake.x < br.x + BRICK_SIZE && snake.x + snake.size > br.x && snake.y < br.y + BRICK_SIZE && snake.y + snake.size > br.y) {
+                let overlapX = Math.min(snake.x + snake.size - br.x, br.x + BRICK_SIZE - snake.x); let overlapY = Math.min(snake.y + snake.size - br.y, br.y + BRICK_SIZE - snake.y);
+                if(overlapX < overlapY) { snake.x += (snake.dx > 0) ? -overlapX : overlapX; snake.dx *= -1; } else { snake.y += (snake.dy > 0) ? -overlapY : overlapY; snake.dy *= -1; }
+            }
+        });
+
+        aiSnakes.forEach((ai, index) => {
+            let target = balls[index % balls.length] || balls[0];
+            if(target) { if(ai.x < target.x - 15) ai.x += 7; else if(ai.x > target.x + 15) ai.x -= 7; }
+            ai.trail.unshift({x: ai.x, y: ai.y}); ai.trail.pop();
+            ai.trail.forEach((t, i) => { ctx.fillStyle = "rgba(139, 69, 19, " + (0.5 - i/30) + ")"; ctx.beginPath(); ctx.arc(t.x + 15, t.y + 15, 15, 0, Math.PI*2); ctx.fill(); });
+        });
+
+        items.forEach((it, idx) => {
+            it.y += it.dy; it.rot += 0.05; ctx.save(); ctx.translate(it.x + 15, it.y + 15); ctx.rotate(it.rot);
+            let color = it.type === 'multi' ? '#29b6f6' : it.type === 'ai' ? '#ab47bc' : '#ffee58'; drawStar(0, 0, 5, 14, 6, color); ctx.restore();
+            if(Math.hypot(snake.x + 15 - (it.x + 15), snake.y + 15 - (it.y + 15)) < 40) {
+                if(it.type === 'multi') { let currentBalls = [...balls]; currentBalls.forEach(b => { balls.push({...b, dx: -b.dx, dy: b.dy}); balls.push({...b, dx: b.dx, dy: -b.dy}); }); } 
+                else if(it.type === 'ai') { let newAiId = Date.now() + Math.random(); let newAi = { x: snake.x, y: 600, trail: [], id: newAiId }; for(let i=0; i<15; i++) newAi.trail.push({x:snake.x, y:600}); aiSnakes.push(newAi); setTimeout(() => { aiSnakes = aiSnakes.filter(ai => ai.id !== newAiId); }, 15000); } 
+                else if(it.type === 'time') { timeLeft += 10; }
+                items.splice(idx, 1);
+            }
+        });
+
+        balls.forEach((b) => {
+            b.x += b.dx; b.y += b.dy;
+            if(b.x < 10 || b.x > 590) b.dx *= -1; if(b.y < 10) b.dy *= -1; if(b.y > 710) { b.y = 710; b.dy = -Math.abs(b.speed); }
+            snake.trail.forEach(t => { if(b.x > t.x && b.x < t.x + snake.size && b.y > t.y && b.y < t.y + snake.size) { b.dy = -Math.abs(b.speed); b.dx += snake.dx * 0.15; } });
+            aiSnakes.forEach(ai => { ai.trail.forEach(t => { if(b.x > t.x && b.x < t.x + 30 && b.y > t.y && b.y < t.y + 30) { b.dy = -Math.abs(b.speed); } }); });
+            bricks.forEach(br => { if(br.alive && b.x > br.x && b.x < br.x + BRICK_SIZE && b.y > br.y && b.y < br.y + BRICK_SIZE) { br.alive = false; b.dy *= -1; score += 20; } });
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2); ctx.fillStyle = "#cddc39"; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke(); 
+        });
+
+        snake.trail.forEach((t, i) => { ctx.fillStyle = currentToy.color; ctx.beginPath(); ctx.arc(t.x + snake.size/2, t.y + snake.size/2, snake.size/2, 0, Math.PI*2); ctx.fill(); });
+        bricks.forEach(br => { if(br.alive) { ctx.fillStyle = br.color; ctx.beginPath(); ctx.roundRect(br.x + 2, br.y + 2, BRICK_SIZE - 4, BRICK_SIZE - 4, 6); ctx.fill(); } });
+
+        if(bricks.length > 0 && bricks.every(br => !br.alive)) { 
+            gameActive = false;
+            setTimeout(() => {
+                const toyQuotes = [
+                    `"훗, 이 ${currentToy.name}? 뭐 나쁘진 않네. 일단 내 보물창고에 넣어둬."`,
+                    "\"닝겐, 장난감 하나 구하는데 시간이 왜 이리 오래 걸려? 다음엔 더 빨리 움직여라.\"",
+                    "\"오호... 색깔이 좀 촌스럽지만 주인 정성을 봐서 내가 특별히 가지고 놀아주마.\"",
+                    "\"역시 내 공 튕기기 실력은 여전하군. 너도 내 밑에서 좀 더 배워라 멍!\"",
+                    "\"이걸로 오늘 하루는 무료하지 않겠군. 자, 이제 간식도 가져와 봐!\""
+                ];
+                const randomQuote = toyQuotes[Math.floor(Math.random() * toyQuotes.length)];
+
+                bongbongData.collectedToys.push(currentToy.id);
+                bongbongData.toyLastPlayed = today; 
+                
+                let newMaxStress = 100 - (bongbongData.collectedToys.length * 10);
+                bongbongData.stress -= 25; 
+                if(bongbongData.stress < 0) bongbongData.stress = 0;
+                if(bongbongData.stress > newMaxStress) bongbongData.stress = newMaxStress;
+
+                localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+
+                alert(`🎉 획득 성공!\n\n봉봉이: ${randomQuote}\n\n최대 스트레스 한도가 ${newMaxStress}으로 줄어듭니다!`);
+                window.location.href = 'index.html';
+            }, 100);
+            return; 
+        }
+        
+        document.getElementById("scoreUI").innerText = "점수: " + score; document.getElementById("timerUI").innerText = "⏳ " + timeLeft + "초";
+        if(gameActive) loop = requestAnimationFrame(play);
+    }
+</script>
+</body>
+</html>
