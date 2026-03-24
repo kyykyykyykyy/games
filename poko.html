@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>포코피아 건축 에디터 v2.6 (3D 이미지 캡처 기능)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .info-text { text-align: center; color: #d32f2f; font-weight: bold; font-size: 14px; margin-bottom: 20px; background: #ffebee; padding: 8px; border-radius: 8px; display: inline-block; }
+        .header-container { text-align: center; }
+        
+        .container { display: flex; gap: 20px; justify-content: center; height: 750px; }
+        
+        /* 왼쪽 패널: 팔레트 */
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow-y: auto; }
+        .palette { width: 180px; }
+        .mat-section-title { font-weight: bold; margin: 15px 0 8px; color: #555; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        
+        .mat-btn { display: flex; align-items: center; gap: 8px; padding: 8px; margin-bottom: 6px; border: 2px solid transparent; border-radius: 8px; cursor: pointer; background: #f9f9f9; transition: 0.2s; font-size: 13px; font-weight: bold; }
+        .mat-btn:hover { background: #eee; }
+        .mat-btn.active { border-color: #333; background: #e0e0e0; }
+        .color-box { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #ccc; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+
+        .color-picker-group { display: flex; gap: 10px; margin-bottom: 10px; padding: 5px 0; }
+        .color-circle { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: 0.2s; }
+        .color-circle:hover { transform: scale(1.1); }
+        .color-circle.active { border-color: #333; transform: scale(1.1); }
+
+        /* 중앙 패널: 2D 그리드 */
+        .grid-container { flex: 1; min-width: 650px; display: flex; flex-direction: column; align-items: center; }
+        .top-controls { display: flex; gap: 10px; width: 100%; justify-content: space-between; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
+        
+        .tool-group { display: flex; gap: 5px; background: #eee; padding: 5px; border-radius: 8px; align-items: center; }
+        .tool-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; background: transparent; font-weight: bold; transition: 0.2s; font-size: 13px; }
+        .tool-btn.active { background: #ff9800; color: white; }
+        #btn-rotate { background: #673AB7; color: white; margin-left: 5px; }
+        #btn-rotate:hover { background: #5E35B1; }
+        
+        /* 크기 선택 드롭다운 */
+        .size-select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+        .file-controls { display: flex; gap: 5px; }
+        .file-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; background: #009688; color: white; font-weight: bold; font-size: 13px; transition: 0.2s; }
+        .file-btn:hover { background: #00796b; }
+
+        .history-controls { display: flex; gap: 5px; }
+        .history-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; background: #757575; color: white; font-weight: bold; font-size: 13px; transition: 0.2s; }
+        .history-btn:hover:not(:disabled) { background: #616161; }
+        .history-btn:disabled { background: #ccc; cursor: not-allowed; opacity: 0.7; }
+
+        .layer-controls { display: flex; gap: 10px; align-items: center; }
+        button { padding: 8px 16px; cursor: pointer; border: none; border-radius: 6px; background: #4caf50; color: white; font-weight: bold; font-size: 14px; }
+        button:hover:not(:disabled) { background: #45a049; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .layer-info { font-size: 16px; font-weight: bold; width: 50px; text-align: center; }
+        .toggle-btn { background: #2196F3; font-size: 13px; padding: 8px 12px;}
+        
+        .grid-wrapper { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: auto; }
+        .grid { display: grid; background: #fff; border: 3px solid #333; padding: 0; user-select: none; width: max-content; }
+        .cell { width: 24px; height: 24px; background: white; cursor: pointer; position: relative; box-sizing: border-box; border-right: 1px solid #eee; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; }
+        
+        .cell:hover::before { content: attr(data-preview); position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; color: rgba(0,0,0,0.6); font-size: 14px; pointer-events: none; z-index: 10; }
+        .cell:hover::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.1); z-index: 5; pointer-events: none;}
+        
+        .col-5 { border-right: 2px solid #555 !important; }
+        .row-5 { border-bottom: 2px solid #555 !important; }
+        .onion-skin { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.3; pointer-events: none; }
+        .preview-rect { border: 2px dashed #333 !important; opacity: 0.7; z-index: 10; background: rgba(0,0,0,0.1) !important; }
+
+        /* 오른쪽 패널: 3D 프리뷰 */
+        .preview-container { width: 550px; display: flex; flex-direction: column; }
+        #canvas3d { flex: 1; background: #eef2f5; border-radius: 8px; border: 2px solid #ccc; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .preview-title { text-align: center; font-weight: bold; margin-bottom: 10px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div class="header-container">
+        <div class="header">
+            <h1>🧱 포코피아 건축 조립도 에디터 (v2.6)</h1>
+            <p>새로운 기능: <b>[📸 캡처]</b> 버튼으로 완성된 3D 건물의 사진을 저장해 보세요!</p>
+        </div>
+        <div class="info-text">💡 팁: 마우스 우클릭으로 3D 화면을 이동하고 휠로 확대/축소한 뒤 예쁜 각도에서 캡처하세요.</div>
+    </div>
+
+    <div class="container">
+        <div class="panel palette" id="palette"></div>
+
+        <div class="panel grid-container">
+            <div class="top-controls">
+                <div class="tool-group">
+                    <select id="size-select" class="size-select" onchange="changeCanvasSize(this.value)">
+                        <option value="10">10x10</option>
+                        <option value="15">15x15</option>
+                        <option value="20">20x20</option>
+                        <option value="25" selected>25x25</option>
+                        <option value="30">30x30</option>
+                        <option value="40">40x40</option>
+                    </select>
+                    <button class="tool-btn active" id="btn-pen">🖌️ 펜</button>
+                    <button class="tool-btn" id="btn-rect">🔲 사각형</button>
+                    <button class="tool-btn" id="btn-rotate" title="단축키: R" onclick="rotateCurrentMaterial()">↻ 회전</button>
+                </div>
+                
+                <div class="file-controls">
+                    <button class="file-btn" onclick="saveBlueprint()">💾 저장</button>
+                    <button class="file-btn" onclick="document.getElementById('file-upload').click()">📂 불러오기</button>
+                    <input type="file" id="file-upload" accept=".json" style="display: none;" onchange="loadBlueprint(event)">
+                    <button class="file-btn" style="background:#E91E63;" onclick="capture3D()">📸 캡처</button>
+                </div>
+
+                <div class="history-controls">
+                    <button class="history-btn" id="btn-undo" onclick="undo()" title="단축키: Ctrl+Z" disabled>↩ 이전</button>
+                    <button class="history-btn" id="btn-redo" onclick="redo()" title="단축키: Ctrl+Y" disabled>↪ 다음</button>
+                </div>
+
+                <div class="layer-controls">
+                    <button id="btn-down">▼</button>
+                    <div class="layer-info" id="layer-text">1 단</div>
+                    <button id="btn-up">▲</button>
+                </div>
+                <button class="toggle-btn" id="btn-onion">비치기 ON</button>
+            </div>
+            <div class="grid-wrapper">
+                <div class="grid" id="grid"></div>
+            </div>
+        </div>
+
+        <div class="panel preview-container">
+            <div class="preview-title">🎮 3D 실시간 프리뷰</div>
+            <div id="canvas3d"><span style="color:#888;">로딩 중...</span></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 기본 설정 및 데이터 ---
+        let SIZE = 25; 
+        const LAYERS = 7; 
+        let currentLayer = 0; 
+        let selectedMat = 1; 
+        let showOnionSkin = true;
+        
+        let currentTool = 'pen'; 
+        let isMouseDown = false;
+        let paintMode = 'paint'; 
+        let stateChanged = false; 
+        
+        let rectStartX = -1, rectStartY = -1;
+        let rectEndX = -1, rectEndY = -1;
+
+        let currentRoofColor = 'orange'; 
+        let currentSlopeDir = 1, currentCornerDir = 5; 
+        let currentWindowDir = 1, currentDoorDir = 1; 
+
+        const roofPrefix = { 'orange': 100, 'blue': 200, 'skyblue': 300 };
+
+        let buildingData = [];
+
+        function initBuildingData() {
+            buildingData = Array.from({ length: LAYERS }, () => 
+                Array.from({ length: SIZE }, () => Array(SIZE).fill(0))
+            );
+        }
+        initBuildingData();
+
+        window.changeCanvasSize = function(newSize) {
+            if (confirm("캔버스 크기를 변경하면 현재 작업 중인 도면이 모두 초기화됩니다.\n계속하시겠습니까?")) {
+                SIZE = parseInt(newSize);
+                initBuildingData();
+                historyStack = [];
+                historyIndex = -1;
+                currentLayer = 0;
+                
+                saveHistory();
+                drawGrid();
+                
+                if (is3DReady) {
+                    camera.position.set(SIZE * 1.2, SIZE * 0.8, SIZE * 1.2);
+                    controls.target.set(SIZE / 2, 0, SIZE / 2);
+                    controls.update();
+                    update3DSafe();
+                }
+            } else {
+                document.getElementById('size-select').value = SIZE;
+            }
+        };
+
+        // --- 2. 도면 파일 저장 및 불러오기 (JSON) ---
+        window.saveBlueprint = function() {
+            let fileName = prompt("저장할 파일 이름을 입력하세요 (확장자 제외):", "pokopia_blueprint");
+            if (fileName === null) return; 
+            
+            fileName = fileName.trim();
+            if (fileName === "") fileName = "pokopia_blueprint";
+            if (!fileName.endsWith('.json')) fileName += '.json';
+
+            const exportData = {
+                title: fileName.replace('.json', ''),
+                version: "2.6",
+                size: SIZE,
+                layers: LAYERS,
+                data: buildingData
+            };
+            
+            const dataStr = JSON.stringify(exportData);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName; 
+            a.click();
+            URL.revokeObjectURL(url); 
+        };
+
+        window.loadBlueprint = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    
+                    if (imported.size && imported.size !== SIZE) {
+                        SIZE = imported.size;
+                        document.getElementById('size-select').value = SIZE;
+                        
+                        if (is3DReady) {
+                            camera.position.set(SIZE * 1.2, SIZE * 0.8, SIZE * 1.2);
+                            controls.target.set(SIZE / 2, 0, SIZE / 2);
+                            controls.update();
+                        }
+                    }
+
+                    buildingData = imported.data; 
+                    currentLayer = 0;
+                    
+                    historyStack = [];
+                    historyIndex = -1;
+                    saveHistory();
+                    
+                    drawGrid();
+                    update3DSafe();
+                    alert(`[${imported.title || file.name}] 도면을 성공적으로 불러왔습니다! 🏗️`);
+                } catch(err) {
+                    alert("잘못된 도면 파일입니다. 포코빌더에서 저장한 .json 파일만 열 수 있습니다.");
+                    console.error(err);
+                }
+                event.target.value = ''; 
+            };
+            reader.readAsText(file);
+        };
+
+        // --- 3. 히스토리(Undo/Redo) ---
+        let historyStack = [];
+        let historyIndex = -1;
+        const MAX_HISTORY = 30; 
+
+        function saveHistory() {
+            const stateCopy = buildingData.map(layer => layer.map(row => [...row]));
+            if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
+            historyStack.push(stateCopy);
+            if (historyStack.length > MAX_HISTORY) historyStack.shift(); else historyIndex++;
+            updateHistoryUI();
+        }
+
+        function restoreState(state) {
+            for (let l = 0; l < LAYERS; l++) {
+                for (let y = 0; y < SIZE; y++) {
+                    for (let x = 0; x < SIZE; x++) buildingData[l][y][x] = state[l][y][x];
+                }
+            }
+            drawGrid(); update3DSafe(); updateHistoryUI();
+        }
+
+        window.undo = function() { if (historyIndex > 0) { historyIndex--; restoreState(historyStack[historyIndex]); } };
+        window.redo = function() { if (historyIndex < historyStack.length - 1) { historyIndex++; restoreState(historyStack[historyIndex]); } };
+
+        function updateHistoryUI() {
+            document.getElementById('btn-undo').disabled = (historyIndex <= 0);
+            document.getElementById('btn-redo').disabled = (historyIndex >= historyStack.length - 1);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'r') rotateCurrentMaterial();
+            if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+            if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+        });
+
+        // --- 4. 재료 데이터베이스 ---
+        const materials = {
+            0: { name: "지우개", color: "#ffffff", hex: 0xffffff, type: "basic" },
+            1: { name: "목재 벽", color: "#8B4513", hex: 0x8B4513, type: "basic" },
+            2: { name: "벽돌 벽", color: "#B22222", hex: 0xB22222, type: "basic" },
+            3: { name: "콘크리트", color: "#A9A9A9", hex: 0xA9A9A9, type: "basic" },
+            8: { name: "페인트 벽", color: "#D4D0C4", hex: 0xD4D0C4, type: "basic" },
+            5: { name: "잔디", color: "#32CD32", hex: 0x32CD32, type: "basic" },
+            6: { name: "수영장 물", color: "#1E90FF", hex: 0x1E90FF, transparent: true, opacity: 0.8, type: "basic" },
+            7: { name: "기둥/나무", color: "#5C4033", hex: 0x5C4033, type: "basic" }
+        };
+
+        const colors = [
+            { id: 100, name: "오렌지", color: "#FF9800", hex: 0xFF9800 },
+            { id: 200, name: "파랑", color: "#2196F3", hex: 0x2196F3 },
+            { id: 300, name: "하늘색", color: "#87CEEB", hex: 0x87CEEB }
+        ];
+
+        colors.forEach(c => {
+            materials[c.id + 1] = { name: "경사면", color: c.color, hex: c.hex, symbol: "↑", type: "roof_slope", rotY: Math.PI/2 };
+            materials[c.id + 2] = { name: "경사면", color: c.color, hex: c.hex, symbol: "→", type: "roof_slope", rotY: 0 };
+            materials[c.id + 3] = { name: "경사면", color: c.color, hex: c.hex, symbol: "↓", type: "roof_slope", rotY: -Math.PI/2 };
+            materials[c.id + 4] = { name: "경사면", color: c.color, hex: c.hex, symbol: "←", type: "roof_slope", rotY: Math.PI };
+            materials[c.id + 5] = { name: "모서리", color: c.color, hex: c.hex, symbol: "↗", type: "roof_corner", rotY: 0 };
+            materials[c.id + 6] = { name: "모서리", color: c.color, hex: c.hex, symbol: "↘", type: "roof_corner", rotY: -Math.PI/2 };
+            materials[c.id + 7] = { name: "모서리", color: c.color, hex: c.hex, symbol: "↙", type: "roof_corner", rotY: Math.PI };
+            materials[c.id + 8] = { name: "모서리", color: c.color, hex: c.hex, symbol: "↖", type: "roof_corner", rotY: Math.PI/2 };
+        });
+
+        materials[401] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟↑", type: "thin_window", rotY: 0 };
+        materials[402] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟→", type: "thin_window", rotY: Math.PI/2 };
+        materials[403] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟↓", type: "thin_window", rotY: 0 };
+        materials[404] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟←", type: "thin_window", rotY: Math.PI/2 };
+
+        materials[501] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪↑", type: "thin_door", rotY: 0 };
+        materials[502] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪→", type: "thin_door", rotY: Math.PI/2 };
+        materials[503] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪↓", type: "thin_door", rotY: 0 };
+        materials[504] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪←", type: "thin_door", rotY: Math.PI/2 };
+
+        // --- 5. 팔레트 UI ---
+        const paletteDiv = document.getElementById('palette');
+        let openingsContainer, colorPickerGroup, roofButtonsContainer;
+
+        function initPalette() {
+            paletteDiv.innerHTML = ''; 
+            
+            paletteDiv.appendChild(createSectionTitle("🧱 벽/바닥"));
+            [0, 1, 2, 3, 8, 5, 6, 7].forEach(id => paletteDiv.appendChild(createPaletteBtn(id)));
+
+            paletteDiv.appendChild(createSectionTitle("🪟 창호/문 (R 회전)"));
+            openingsContainer = document.createElement('div');
+            paletteDiv.appendChild(openingsContainer);
+
+            paletteDiv.appendChild(createSectionTitle("🏠 지붕 (R 회전)"));
+            colorPickerGroup = document.createElement('div');
+            colorPickerGroup.className = 'color-picker-group';
+            paletteDiv.appendChild(colorPickerGroup);
+
+            roofButtonsContainer = document.createElement('div');
+            paletteDiv.appendChild(roofButtonsContainer);
+
+            renderColorPicker(); renderOpeningsButtons(); renderRoofButtons(); updateSelectionUI();
+        }
+
+        function renderColorPicker() {
+            colorPickerGroup.innerHTML = `
+                <div class="color-circle ${currentRoofColor === 'orange' ? 'active' : ''}" style="background:#FF9800" onclick="changeRoofColor('orange')"></div>
+                <div class="color-circle ${currentRoofColor === 'blue' ? 'active' : ''}" style="background:#2196F3" onclick="changeRoofColor('blue')"></div>
+                <div class="color-circle ${currentRoofColor === 'skyblue' ? 'active' : ''}" style="background:#87CEEB" onclick="changeRoofColor('skyblue')"></div>
+            `;
+        }
+
+        function renderOpeningsButtons() {
+            openingsContainer.innerHTML = '';
+            openingsContainer.appendChild(createPaletteBtn(400 + currentWindowDir));
+            openingsContainer.appendChild(createPaletteBtn(500 + currentDoorDir));
+        }
+
+        function renderRoofButtons() {
+            roofButtonsContainer.innerHTML = '';
+            const prefix = roofPrefix[currentRoofColor];
+            roofButtonsContainer.appendChild(createPaletteBtn(prefix + currentSlopeDir));
+            roofButtonsContainer.appendChild(createPaletteBtn(prefix + currentCornerDir));
+        }
+
+        function createSectionTitle(title) {
+            const div = document.createElement('div');
+            div.className = 'mat-section-title';
+            div.innerText = title;
+            return div;
+        }
+
+        function createPaletteBtn(id) {
+            const btn = document.createElement('div');
+            btn.className = 'mat-btn';
+            btn.dataset.id = id; 
+            let colorBoxInner = materials[id].symbol || "";
+            let colorBoxStyle = `background:${materials[id].color}; ${id == 0 ? 'border: 1px dashed #333;' : ''}`;
+            
+            btn.innerHTML = `<div class="color-box" style="${colorBoxStyle}">${colorBoxInner}</div> ${materials[id].name}`;
+            btn.onclick = () => { selectedMat = parseInt(id); updateSelectionUI(); };
+            return btn;
+        }
+
+        function updateSelectionUI() {
+            document.querySelectorAll('.mat-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.id) === selectedMat);
+            });
+        }
+
+        window.changeRoofColor = function(colorStr) {
+            currentRoofColor = colorStr;
+            if (materials[selectedMat] && materials[selectedMat].type.startsWith('roof')) {
+                const dirOffset = selectedMat % 100; selectedMat = roofPrefix[colorStr] + dirOffset;
+            } else {
+                selectedMat = roofPrefix[colorStr] + currentSlopeDir;
+            }
+            renderColorPicker(); renderRoofButtons(); updateSelectionUI();
+        };
+
+        window.rotateCurrentMaterial = function() {
+            if (!materials[selectedMat]) return;
+            const type = materials[selectedMat].type;
+            if (type === 'roof_slope') {
+                currentSlopeDir = (currentSlopeDir % 4) + 1; selectedMat = roofPrefix[currentRoofColor] + currentSlopeDir;
+            } else if (type === 'roof_corner') {
+                currentCornerDir = ((currentCornerDir - 5 + 1) % 4) + 5; selectedMat = roofPrefix[currentRoofColor] + currentCornerDir;
+            } else if (type === 'thin_window') {
+                currentWindowDir = (currentWindowDir % 4) + 1; selectedMat = 400 + currentWindowDir;
+            } else if (type === 'thin_door') {
+                currentDoorDir = (currentDoorDir % 4) + 1; selectedMat = 500 + currentDoorDir;
+            } else {
+                currentSlopeDir = (currentSlopeDir % 4) + 1; selectedMat = roofPrefix[currentRoofColor] + currentSlopeDir;
+            }
+            renderOpeningsButtons(); renderRoofButtons(); updateSelectionUI();
+        };
+
+        // --- 6. 그리드 캔버스 ---
+        document.getElementById('btn-pen').onclick = (e) => setTool('pen', e.target);
+        document.getElementById('btn-rect').onclick = (e) => setTool('rect', e.target);
+        function setTool(tool, target) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            target.classList.add('active');
+        }
+
+        const gridDiv = document.getElementById('grid');
+
+        window.addEventListener('mouseup', () => {
+            if (isMouseDown) {
+                if (currentTool === 'rect' && rectStartX !== -1) {
+                    let minX = Math.min(rectStartX, rectEndX), maxX = Math.max(rectStartX, rectEndX);
+                    let minY = Math.min(rectStartY, rectEndY), maxY = Math.max(rectStartY, rectEndY);
+                    let fillMat = (buildingData[currentLayer][rectStartY][rectStartX] === selectedMat && selectedMat !== 0) ? 0 : selectedMat;
+                    for (let y = minY; y <= maxY; y++) {
+                        for (let x = minX; x <= maxX; x++) buildingData[currentLayer][y][x] = fillMat;
+                    }
+                    update3DSafe(); stateChanged = true;
+                }
+                if (stateChanged) { saveHistory(); stateChanged = false; }
+            }
+            isMouseDown = false; rectStartX = -1; drawGrid();
+        });
+
+        function drawGrid() {
+            gridDiv.style.gridTemplateColumns = `repeat(${SIZE}, 24px)`;
+            gridDiv.style.gridTemplateRows = `repeat(${SIZE}, 24px)`;
+            gridDiv.innerHTML = '';
+
+            let rMinX = Math.min(rectStartX, rectEndX), rMaxX = Math.max(rectStartX, rectEndX);
+            let rMinY = Math.min(rectStartY, rectEndY), rMaxY = Math.max(rectStartY, rectEndY);
+
+            for (let y = 0; y < SIZE; y++) {
+                for (let x = 0; x < SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if ((x + 1) % 5 === 0 && x !== SIZE - 1) cell.classList.add('col-5');
+                    if ((y + 1) % 5 === 0 && y !== SIZE - 1) cell.classList.add('row-5');
+
+                    const matId = buildingData[currentLayer][y][x];
+                    if (matId !== 0) {
+                        cell.style.backgroundColor = materials[matId].color; 
+                        if (materials[matId].symbol) {
+                            cell.innerText = materials[matId].symbol;
+                            cell.style.fontSize = "10px"; 
+                            if(matId >= 200 && matId < 300) cell.style.color = "white"; 
+                        }
+                    }
+
+                    if (showOnionSkin && currentLayer > 0 && matId === 0) {
+                        const belowMatId = buildingData[currentLayer - 1][y][x];
+                        if (belowMatId !== 0) {
+                            const onion = document.createElement('div');
+                            onion.className = 'onion-skin';
+                            onion.style.backgroundColor = materials[belowMatId].color;
+                            cell.appendChild(onion);
+                        }
+                    }
+
+                    if (currentTool === 'rect' && isMouseDown && rectStartX !== -1) {
+                        if (x >= rMinX && x <= rMaxX && y >= rMinY && y <= rMaxY) cell.classList.add('preview-rect');
+                    }
+
+                    cell.onmouseenter = () => {
+                        if (!isMouseDown) {
+                            if (materials[selectedMat] && materials[selectedMat].symbol) {
+                                cell.setAttribute('data-preview', materials[selectedMat].symbol);
+                            }
+                        } else {
+                            if (currentTool === 'pen') {
+                                buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat;
+                                stateChanged = true; drawGrid(); update3DSafe();
+                            } else {
+                                rectEndX = x; rectEndY = y; drawGrid();
+                            }
+                        }
+                    };
+
+                    cell.onmouseleave = () => { cell.removeAttribute('data-preview'); };
+
+                    cell.onmousedown = () => {
+                        isMouseDown = true;
+                        if (currentTool === 'pen') {
+                            paintMode = (matId === selectedMat && selectedMat !== 0) ? 'erase' : 'paint';
+                            buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat;
+                            stateChanged = true; drawGrid(); update3DSafe();
+                        } else {
+                            rectStartX = x; rectStartY = y; rectEndX = x; rectEndY = y; drawGrid();
+                        }
+                    };
+
+                    gridDiv.appendChild(cell);
+                }
+            }
+            document.getElementById('layer-text').innerText = `${currentLayer + 1} 단`;
+            document.getElementById('btn-down').disabled = currentLayer === 0;
+            document.getElementById('btn-up').disabled = currentLayer === LAYERS - 1;
+        }
+
+        document.getElementById('btn-up').onclick = () => { if (currentLayer < LAYERS - 1) { currentLayer++; drawGrid(); } };
+        document.getElementById('btn-down').onclick = () => { if (currentLayer > 0) { currentLayer--; drawGrid(); } };
+        document.getElementById('btn-onion').onclick = (e) => {
+            showOnionSkin = !showOnionSkin;
+            e.target.innerText = showOnionSkin ? "비치기 ON" : "비치기 OFF";
+            e.target.style.background = showOnionSkin ? "#2196F3" : "#999";
+            drawGrid();
+        };
+
+        // --- 7. 3D 프리뷰 ---
+        let scene, camera, renderer, controls, buildingGroup;
+        let cubeGeometry, thinBoxGeometry, wedgeGeometry, cornerGeom;
+        let edgeMaterial, cubeEdges, slopeEdges, cornerEdges, thinEdges;
+        let is3DReady = false;
+
+        function init3D() {
+            const container3d = document.getElementById('canvas3d');
+            if (typeof THREE === 'undefined') {
+                container3d.innerHTML = "<div style='color:red; text-align:center;'><b>3D 엔진 로딩 실패</b><br>💡 2D 에디터는 계속 사용할 수 있습니다.</div>";
+                return;
+            }
+
+            container3d.innerHTML = ''; 
+            is3DReady = true;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container3d.clientWidth / container3d.clientHeight, 0.1, 1000);
+            
+            // ✨ 핵심: 캡처를 위해 preserveDrawingBuffer 속성을 true로 켬
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setSize(container3d.clientWidth, container3d.clientHeight);
+            container3d.appendChild(renderer.domElement);
+
+            camera.position.set(SIZE * 1.2, Math.max(SIZE * 0.8, 15), SIZE * 1.2);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(SIZE / 2, 0, SIZE / 2); controls.update();
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(10, 20, 10); scene.add(dirLight);
+
+            buildingGroup = new THREE.Group(); scene.add(buildingGroup);
+
+            cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            thinBoxGeometry = new THREE.BoxGeometry(1, 1, 0.1);
+
+            const triangleShape = new THREE.Shape();
+            triangleShape.moveTo(-0.5, -0.5); 
+            triangleShape.lineTo(0.5, -0.5); 
+            triangleShape.lineTo(-0.5, 0.5); 
+            triangleShape.lineTo(-0.5, -0.5);
+            wedgeGeometry = new THREE.ExtrudeGeometry(triangleShape, { depth: 1, bevelEnabled: false });
+            wedgeGeometry.translate(0, 0, -0.5); 
+
+            cornerGeom = new THREE.ConeGeometry(Math.sqrt(2)/2, 1, 4);
+            cornerGeom.rotateY(Math.PI / 4);
+
+            edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
+            cubeEdges = new THREE.EdgesGeometry(cubeGeometry);
+            slopeEdges = new THREE.EdgesGeometry(wedgeGeometry);
+            cornerEdges = new THREE.EdgesGeometry(cornerGeom);
+            thinEdges = new THREE.EdgesGeometry(thinBoxGeometry);
+
+            update3DSafe(); animate();
+        }
+
+        function update3DSafe() {
+            if (!is3DReady) return; 
+
+            scene.remove(buildingGroup);
+            buildingGroup = new THREE.Group();
+
+            for (let l = 0; l < LAYERS; l++) {
+                for (let y = 0; y < SIZE; y++) {
+                    for (let x = 0; x < SIZE; x++) {
+                        const matId = buildingData[l][y][x];
+                        if (matId === 0) continue;
+
+                        const matInfo = materials[matId];
+                        const material = new THREE.MeshLambertMaterial({ color: matInfo.hex, transparent: matInfo.transparent || false, opacity: matInfo.opacity || 1.0, side: THREE.DoubleSide });
+
+                        let mesh, edgesGeo;
+                        if (matInfo.type === 'roof_slope') {
+                            mesh = new THREE.Mesh(wedgeGeometry, material); edgesGeo = slopeEdges;
+                        } else if (matInfo.type === 'roof_corner') {
+                            mesh = new THREE.Mesh(cornerGeom, material); edgesGeo = cornerEdges;
+                        } else if (matInfo.type === 'thin_window' || matInfo.type === 'thin_door') { 
+                            mesh = new THREE.Mesh(thinBoxGeometry, material); edgesGeo = thinEdges;
+                        } else { 
+                            mesh = new THREE.Mesh(cubeGeometry, material); edgesGeo = cubeEdges;
+                        }
+                        
+                        mesh.position.set(x + 0.5, l + 0.5, y + 0.5);
+                        if (matInfo.rotY !== undefined) mesh.rotation.y = matInfo.rotY;
+                        
+                        mesh.add(new THREE.LineSegments(edgesGeo, edgeMaterial));
+                        buildingGroup.add(mesh);
+                    }
+                }
+            }
+            scene.add(buildingGroup);
+        }
+
+        function animate() { 
+            if(!is3DReady) return;
+            requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); 
+        }
+
+        // ✨ 3D 이미지 캡처 기능 ✨
+        window.capture3D = function() {
+            if (!is3DReady) {
+                alert("3D 화면이 준비되지 않았습니다.");
+                return;
+            }
+            
+            // 캡처 직전 최신 화면으로 한번 더 강제 렌더링
+            renderer.render(scene, camera);
+            
+            // Canvas 데이터를 이미지 URL로 변환
+            const dataURL = renderer.domElement.toDataURL("image/png");
+            
+            let fileName = prompt("저장할 이미지 이름을 입력하세요:", "pokopia_3d_preview");
+            if (fileName === null) return;
+            
+            fileName = fileName.trim();
+            if (fileName === "") fileName = "pokopia_3d_preview";
+            if (!fileName.endsWith('.png')) fileName += '.png';
+
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = fileName;
+            a.click();
+        };
+
+        window.addEventListener('resize', () => { 
+            if(!is3DReady) return;
+            const container3d = document.getElementById('canvas3d');
+            camera.aspect = container3d.clientWidth / container3d.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container3d.clientWidth, container3d.clientHeight); 
+        });
+
+        try {
+            initPalette(); saveHistory(); drawGrid(); init3D();
+        } catch (error) {
+            console.error(error);
+        }
+    </script>
+</body>
+</html>
