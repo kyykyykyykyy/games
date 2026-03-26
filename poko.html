@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>포코피아 건축 에디터 v2.6 (3D 이미지 캡처 기능)</title>
+    <title>포코피아 건축 에디터 v2.7 (기찻길 & 경사로 추가)</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333; }
         .header { text-align: center; margin-bottom: 10px; }
@@ -36,7 +36,6 @@
         #btn-rotate { background: #673AB7; color: white; margin-left: 5px; }
         #btn-rotate:hover { background: #5E35B1; }
         
-        /* 크기 선택 드롭다운 */
         .size-select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; font-size: 13px; cursor: pointer; }
 
         .file-controls { display: flex; gap: 5px; }
@@ -79,10 +78,10 @@
 
     <div class="header-container">
         <div class="header">
-            <h1>🧱 포코피아 건축 조립도 에디터 (v2.6)</h1>
-            <p>새로운 기능: <b>[📸 캡처]</b> 버튼으로 완성된 3D 건물의 사진을 저장해 보세요!</p>
+            <h1>🧱 포코피아 건축 조립도 에디터 (v2.7)</h1>
+            <p>새로운 기능: <b>6종류의 평면 기찻길과 4종류의 경사로</b>가 추가되었습니다. (단축키 R로 회전)</p>
         </div>
-        <div class="info-text">💡 팁: 마우스 우클릭으로 3D 화면을 이동하고 휠로 확대/축소한 뒤 예쁜 각도에서 캡처하세요.</div>
+        <div class="info-text">💡 팁: 경사로 기찻길(🎢)을 이용하면 다음 단(층)으로 자연스럽게 이어지는 선로를 만들 수 있습니다.</div>
     </div>
 
     <div class="container">
@@ -153,9 +152,13 @@
         let currentRoofColor = 'orange'; 
         let currentSlopeDir = 1, currentCornerDir = 5; 
         let currentWindowDir = 1, currentDoorDir = 1; 
+        
+        // ✨ 기찻길 방향 추적 변수 ✨
+        let currentTrackStraightDir = 1; // 1~2
+        let currentTrackCornerDir = 3;   // 3~6
+        let currentTrackRampDir = 7;     // 7~10
 
         const roofPrefix = { 'orange': 100, 'blue': 200, 'skyblue': 300 };
-
         let buildingData = [];
 
         function initBuildingData() {
@@ -168,96 +171,50 @@
         window.changeCanvasSize = function(newSize) {
             if (confirm("캔버스 크기를 변경하면 현재 작업 중인 도면이 모두 초기화됩니다.\n계속하시겠습니까?")) {
                 SIZE = parseInt(newSize);
-                initBuildingData();
-                historyStack = [];
-                historyIndex = -1;
-                currentLayer = 0;
-                
-                saveHistory();
-                drawGrid();
-                
+                initBuildingData(); historyStack = []; historyIndex = -1; currentLayer = 0;
+                saveHistory(); drawGrid();
                 if (is3DReady) {
                     camera.position.set(SIZE * 1.2, SIZE * 0.8, SIZE * 1.2);
-                    controls.target.set(SIZE / 2, 0, SIZE / 2);
-                    controls.update();
-                    update3DSafe();
+                    controls.target.set(SIZE / 2, 0, SIZE / 2); controls.update(); update3DSafe();
                 }
-            } else {
-                document.getElementById('size-select').value = SIZE;
-            }
+            } else { document.getElementById('size-select').value = SIZE; }
         };
 
-        // --- 2. 도면 파일 저장 및 불러오기 (JSON) ---
+        // --- 파일 저장/불러오기 ---
         window.saveBlueprint = function() {
-            let fileName = prompt("저장할 파일 이름을 입력하세요 (확장자 제외):", "pokopia_blueprint");
+            let fileName = prompt("저장할 파일 이름을 입력하세요:", "pokopia_blueprint");
             if (fileName === null) return; 
-            
-            fileName = fileName.trim();
-            if (fileName === "") fileName = "pokopia_blueprint";
+            fileName = fileName.trim() || "pokopia_blueprint";
             if (!fileName.endsWith('.json')) fileName += '.json';
 
-            const exportData = {
-                title: fileName.replace('.json', ''),
-                version: "2.6",
-                size: SIZE,
-                layers: LAYERS,
-                data: buildingData
-            };
-            
+            const exportData = { title: fileName.replace('.json', ''), version: "2.7", size: SIZE, layers: LAYERS, data: buildingData };
             const dataStr = JSON.stringify(exportData);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName; 
-            a.click();
-            URL.revokeObjectURL(url); 
+            const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url); 
         };
 
         window.loadBlueprint = function(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    
                     if (imported.size && imported.size !== SIZE) {
-                        SIZE = imported.size;
-                        document.getElementById('size-select').value = SIZE;
-                        
-                        if (is3DReady) {
-                            camera.position.set(SIZE * 1.2, SIZE * 0.8, SIZE * 1.2);
-                            controls.target.set(SIZE / 2, 0, SIZE / 2);
-                            controls.update();
-                        }
+                        SIZE = imported.size; document.getElementById('size-select').value = SIZE;
+                        if (is3DReady) { camera.position.set(SIZE * 1.2, SIZE * 0.8, SIZE * 1.2); controls.target.set(SIZE / 2, 0, SIZE / 2); controls.update(); }
                     }
-
-                    buildingData = imported.data; 
-                    currentLayer = 0;
-                    
-                    historyStack = [];
-                    historyIndex = -1;
-                    saveHistory();
-                    
-                    drawGrid();
-                    update3DSafe();
-                    alert(`[${imported.title || file.name}] 도면을 성공적으로 불러왔습니다! 🏗️`);
-                } catch(err) {
-                    alert("잘못된 도면 파일입니다. 포코빌더에서 저장한 .json 파일만 열 수 있습니다.");
-                    console.error(err);
-                }
+                    buildingData = imported.data; currentLayer = 0; historyStack = []; historyIndex = -1;
+                    saveHistory(); drawGrid(); update3DSafe(); alert(`도면을 성공적으로 불러왔습니다! 🏗️`);
+                } catch(err) { alert("잘못된 도면 파일입니다."); }
                 event.target.value = ''; 
             };
             reader.readAsText(file);
         };
 
-        // --- 3. 히스토리(Undo/Redo) ---
-        let historyStack = [];
-        let historyIndex = -1;
-        const MAX_HISTORY = 30; 
-
+        // --- 히스토리 ---
+        let historyStack = [], historyIndex = -1; const MAX_HISTORY = 30; 
         function saveHistory() {
             const stateCopy = buildingData.map(layer => layer.map(row => [...row]));
             if (historyIndex < historyStack.length - 1) historyStack = historyStack.slice(0, historyIndex + 1);
@@ -265,24 +222,15 @@
             if (historyStack.length > MAX_HISTORY) historyStack.shift(); else historyIndex++;
             updateHistoryUI();
         }
-
         function restoreState(state) {
-            for (let l = 0; l < LAYERS; l++) {
-                for (let y = 0; y < SIZE; y++) {
-                    for (let x = 0; x < SIZE; x++) buildingData[l][y][x] = state[l][y][x];
-                }
-            }
+            for (let l = 0; l < LAYERS; l++) for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) buildingData[l][y][x] = state[l][y][x];
             drawGrid(); update3DSafe(); updateHistoryUI();
         }
-
         window.undo = function() { if (historyIndex > 0) { historyIndex--; restoreState(historyStack[historyIndex]); } };
         window.redo = function() { if (historyIndex < historyStack.length - 1) { historyIndex++; restoreState(historyStack[historyIndex]); } };
-
         function updateHistoryUI() {
-            document.getElementById('btn-undo').disabled = (historyIndex <= 0);
-            document.getElementById('btn-redo').disabled = (historyIndex >= historyStack.length - 1);
+            document.getElementById('btn-undo').disabled = (historyIndex <= 0); document.getElementById('btn-redo').disabled = (historyIndex >= historyStack.length - 1);
         }
-
         window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'r') rotateCurrentMaterial();
             if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
@@ -301,12 +249,8 @@
             7: { name: "기둥/나무", color: "#5C4033", hex: 0x5C4033, type: "basic" }
         };
 
-        const colors = [
-            { id: 100, name: "오렌지", color: "#FF9800", hex: 0xFF9800 },
-            { id: 200, name: "파랑", color: "#2196F3", hex: 0x2196F3 },
-            { id: 300, name: "하늘색", color: "#87CEEB", hex: 0x87CEEB }
-        ];
-
+        // 지붕 데이터 (101~308)
+        const colors = [{ id: 100, name: "오렌지", color: "#FF9800", hex: 0xFF9800 }, { id: 200, name: "파랑", color: "#2196F3", hex: 0x2196F3 }, { id: 300, name: "하늘색", color: "#87CEEB", hex: 0x87CEEB }];
         colors.forEach(c => {
             materials[c.id + 1] = { name: "경사면", color: c.color, hex: c.hex, symbol: "↑", type: "roof_slope", rotY: Math.PI/2 };
             materials[c.id + 2] = { name: "경사면", color: c.color, hex: c.hex, symbol: "→", type: "roof_slope", rotY: 0 };
@@ -318,39 +262,54 @@
             materials[c.id + 8] = { name: "모서리", color: c.color, hex: c.hex, symbol: "↖", type: "roof_corner", rotY: Math.PI/2 };
         });
 
+        // 창문/문 (401~504)
         materials[401] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟↑", type: "thin_window", rotY: 0 };
         materials[402] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟→", type: "thin_window", rotY: Math.PI/2 };
         materials[403] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟↓", type: "thin_window", rotY: 0 };
         materials[404] = { name: "유리창", color: "#87CEFA", hex: 0x87CEFA, transparent: true, opacity: 0.6, symbol: "🪟←", type: "thin_window", rotY: Math.PI/2 };
-
         materials[501] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪↑", type: "thin_door", rotY: 0 };
         materials[502] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪→", type: "thin_door", rotY: Math.PI/2 };
         materials[503] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪↓", type: "thin_door", rotY: 0 };
         materials[504] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪←", type: "thin_door", rotY: Math.PI/2 };
 
+        // ✨ 기찻길 데이터 추가 (601 ~ 610) ✨
+        const trackColor = "#607D8B"; const trackHex = 0x607D8B; // 짙은 회색(철도 느낌)
+        
+        materials[601] = { name: "직선 선로", color: trackColor, hex: trackHex, symbol: "═", type: "track_straight", rotY: Math.PI/2 };
+        materials[602] = { name: "직선 선로", color: trackColor, hex: trackHex, symbol: "║", type: "track_straight", rotY: 0 };
+
+        materials[603] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╚", type: "track_corner", rotY: 0 };
+        materials[604] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╔", type: "track_corner", rotY: -Math.PI/2 };
+        materials[605] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╗", type: "track_corner", rotY: Math.PI };
+        materials[606] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╝", type: "track_corner", rotY: Math.PI/2 };
+
+        materials[607] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢↑", type: "track_ramp", rotY: 0 };
+        materials[608] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢→", type: "track_ramp", rotY: -Math.PI/2 };
+        materials[609] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢↓", type: "track_ramp", rotY: Math.PI };
+        materials[610] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢←", type: "track_ramp", rotY: Math.PI/2 };
+
         // --- 5. 팔레트 UI ---
         const paletteDiv = document.getElementById('palette');
-        let openingsContainer, colorPickerGroup, roofButtonsContainer;
+        let openingsContainer, colorPickerGroup, roofButtonsContainer, trackButtonsContainer;
 
         function initPalette() {
             paletteDiv.innerHTML = ''; 
-            
             paletteDiv.appendChild(createSectionTitle("🧱 벽/바닥"));
             [0, 1, 2, 3, 8, 5, 6, 7].forEach(id => paletteDiv.appendChild(createPaletteBtn(id)));
 
-            paletteDiv.appendChild(createSectionTitle("🪟 창호/문 (R 회전)"));
-            openingsContainer = document.createElement('div');
-            paletteDiv.appendChild(openingsContainer);
+            paletteDiv.appendChild(createSectionTitle("🪟 창호/문 (R)"));
+            openingsContainer = document.createElement('div'); paletteDiv.appendChild(openingsContainer);
 
-            paletteDiv.appendChild(createSectionTitle("🏠 지붕 (R 회전)"));
-            colorPickerGroup = document.createElement('div');
-            colorPickerGroup.className = 'color-picker-group';
+            // ✨ 기찻길 팔레트 추가 ✨
+            paletteDiv.appendChild(createSectionTitle("🚂 기찻길 (R)"));
+            trackButtonsContainer = document.createElement('div'); paletteDiv.appendChild(trackButtonsContainer);
+
+            paletteDiv.appendChild(createSectionTitle("🏠 지붕 (R)"));
+            colorPickerGroup = document.createElement('div'); colorPickerGroup.className = 'color-picker-group';
             paletteDiv.appendChild(colorPickerGroup);
+            roofButtonsContainer = document.createElement('div'); paletteDiv.appendChild(roofButtonsContainer);
 
-            roofButtonsContainer = document.createElement('div');
-            paletteDiv.appendChild(roofButtonsContainer);
-
-            renderColorPicker(); renderOpeningsButtons(); renderRoofButtons(); updateSelectionUI();
+            renderColorPicker(); renderOpeningsButtons(); renderRoofButtons(); renderTrackButtons(); updateSelectionUI();
         }
 
         function renderColorPicker() {
@@ -374,44 +333,48 @@
             roofButtonsContainer.appendChild(createPaletteBtn(prefix + currentCornerDir));
         }
 
+        // ✨ 기찻길 버튼 렌더링 ✨
+        function renderTrackButtons() {
+            trackButtonsContainer.innerHTML = '';
+            trackButtonsContainer.appendChild(createPaletteBtn(600 + currentTrackStraightDir));
+            trackButtonsContainer.appendChild(createPaletteBtn(600 + currentTrackCornerDir));
+            trackButtonsContainer.appendChild(createPaletteBtn(600 + currentTrackRampDir));
+        }
+
         function createSectionTitle(title) {
-            const div = document.createElement('div');
-            div.className = 'mat-section-title';
-            div.innerText = title;
-            return div;
+            const div = document.createElement('div'); div.className = 'mat-section-title'; div.innerText = title; return div;
         }
 
         function createPaletteBtn(id) {
-            const btn = document.createElement('div');
-            btn.className = 'mat-btn';
-            btn.dataset.id = id; 
+            const btn = document.createElement('div'); btn.className = 'mat-btn'; btn.dataset.id = id; 
             let colorBoxInner = materials[id].symbol || "";
             let colorBoxStyle = `background:${materials[id].color}; ${id == 0 ? 'border: 1px dashed #333;' : ''}`;
             
+            // 기찻길은 흰색 글씨로 포인트
+            if(id >= 601 && id <= 610) colorBoxStyle += ';color:white';
+
             btn.innerHTML = `<div class="color-box" style="${colorBoxStyle}">${colorBoxInner}</div> ${materials[id].name}`;
             btn.onclick = () => { selectedMat = parseInt(id); updateSelectionUI(); };
             return btn;
         }
 
         function updateSelectionUI() {
-            document.querySelectorAll('.mat-btn').forEach(btn => {
-                btn.classList.toggle('active', parseInt(btn.dataset.id) === selectedMat);
-            });
+            document.querySelectorAll('.mat-btn').forEach(btn => { btn.classList.toggle('active', parseInt(btn.dataset.id) === selectedMat); });
         }
 
         window.changeRoofColor = function(colorStr) {
             currentRoofColor = colorStr;
             if (materials[selectedMat] && materials[selectedMat].type.startsWith('roof')) {
                 const dirOffset = selectedMat % 100; selectedMat = roofPrefix[colorStr] + dirOffset;
-            } else {
-                selectedMat = roofPrefix[colorStr] + currentSlopeDir;
-            }
+            } else { selectedMat = roofPrefix[colorStr] + currentSlopeDir; }
             renderColorPicker(); renderRoofButtons(); updateSelectionUI();
         };
 
+        // ✨ 기찻길 회전 로직 추가 ✨
         window.rotateCurrentMaterial = function() {
             if (!materials[selectedMat]) return;
             const type = materials[selectedMat].type;
+            
             if (type === 'roof_slope') {
                 currentSlopeDir = (currentSlopeDir % 4) + 1; selectedMat = roofPrefix[currentRoofColor] + currentSlopeDir;
             } else if (type === 'roof_corner') {
@@ -420,20 +383,22 @@
                 currentWindowDir = (currentWindowDir % 4) + 1; selectedMat = 400 + currentWindowDir;
             } else if (type === 'thin_door') {
                 currentDoorDir = (currentDoorDir % 4) + 1; selectedMat = 500 + currentDoorDir;
+            } else if (type === 'track_straight') {
+                currentTrackStraightDir = (currentTrackStraightDir % 2) + 1; selectedMat = 600 + currentTrackStraightDir;
+            } else if (type === 'track_corner') {
+                currentTrackCornerDir = ((currentTrackCornerDir - 3 + 1) % 4) + 3; selectedMat = 600 + currentTrackCornerDir;
+            } else if (type === 'track_ramp') {
+                currentTrackRampDir = ((currentTrackRampDir - 7 + 1) % 4) + 7; selectedMat = 600 + currentTrackRampDir;
             } else {
                 currentSlopeDir = (currentSlopeDir % 4) + 1; selectedMat = roofPrefix[currentRoofColor] + currentSlopeDir;
             }
-            renderOpeningsButtons(); renderRoofButtons(); updateSelectionUI();
+            renderOpeningsButtons(); renderRoofButtons(); renderTrackButtons(); updateSelectionUI();
         };
 
         // --- 6. 그리드 캔버스 ---
         document.getElementById('btn-pen').onclick = (e) => setTool('pen', e.target);
         document.getElementById('btn-rect').onclick = (e) => setTool('rect', e.target);
-        function setTool(tool, target) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            target.classList.add('active');
-        }
+        function setTool(tool, target) { currentTool = tool; document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); target.classList.add('active'); }
 
         const gridDiv = document.getElementById('grid');
 
@@ -443,9 +408,7 @@
                     let minX = Math.min(rectStartX, rectEndX), maxX = Math.max(rectStartX, rectEndX);
                     let minY = Math.min(rectStartY, rectEndY), maxY = Math.max(rectStartY, rectEndY);
                     let fillMat = (buildingData[currentLayer][rectStartY][rectStartX] === selectedMat && selectedMat !== 0) ? 0 : selectedMat;
-                    for (let y = minY; y <= maxY; y++) {
-                        for (let x = minX; x <= maxX; x++) buildingData[currentLayer][y][x] = fillMat;
-                    }
+                    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) buildingData[currentLayer][y][x] = fillMat;
                     update3DSafe(); stateChanged = true;
                 }
                 if (stateChanged) { saveHistory(); stateChanged = false; }
@@ -454,174 +417,152 @@
         });
 
         function drawGrid() {
-            gridDiv.style.gridTemplateColumns = `repeat(${SIZE}, 24px)`;
-            gridDiv.style.gridTemplateRows = `repeat(${SIZE}, 24px)`;
-            gridDiv.innerHTML = '';
-
-            let rMinX = Math.min(rectStartX, rectEndX), rMaxX = Math.max(rectStartX, rectEndX);
-            let rMinY = Math.min(rectStartY, rectEndY), rMaxY = Math.max(rectStartY, rectEndY);
+            gridDiv.style.gridTemplateColumns = `repeat(${SIZE}, 24px)`; gridDiv.style.gridTemplateRows = `repeat(${SIZE}, 24px)`; gridDiv.innerHTML = '';
+            let rMinX = Math.min(rectStartX, rectEndX), rMaxX = Math.max(rectStartX, rectEndX), rMinY = Math.min(rectStartY, rectEndY), rMaxY = Math.max(rectStartY, rectEndY);
 
             for (let y = 0; y < SIZE; y++) {
                 for (let x = 0; x < SIZE; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    if ((x + 1) % 5 === 0 && x !== SIZE - 1) cell.classList.add('col-5');
-                    if ((y + 1) % 5 === 0 && y !== SIZE - 1) cell.classList.add('row-5');
+                    const cell = document.createElement('div'); cell.className = 'cell';
+                    if ((x + 1) % 5 === 0 && x !== SIZE - 1) cell.classList.add('col-5'); if ((y + 1) % 5 === 0 && y !== SIZE - 1) cell.classList.add('row-5');
 
                     const matId = buildingData[currentLayer][y][x];
                     if (matId !== 0) {
                         cell.style.backgroundColor = materials[matId].color; 
                         if (materials[matId].symbol) {
-                            cell.innerText = materials[matId].symbol;
-                            cell.style.fontSize = "10px"; 
-                            if(matId >= 200 && matId < 300) cell.style.color = "white"; 
+                            cell.innerText = materials[matId].symbol; cell.style.fontSize = "11px"; 
+                            if((matId >= 200 && matId < 300) || (matId >= 601 && matId <= 610)) cell.style.color = "white"; 
                         }
                     }
 
-                    if (showOnionSkin && currentLayer > 0 && matId === 0) {
-                        const belowMatId = buildingData[currentLayer - 1][y][x];
-                        if (belowMatId !== 0) {
-                            const onion = document.createElement('div');
-                            onion.className = 'onion-skin';
-                            onion.style.backgroundColor = materials[belowMatId].color;
-                            cell.appendChild(onion);
-                        }
+                    if (showOnionSkin && currentLayer > 0 && buildingData[currentLayer - 1][y][x] !== 0) {
+                        const onion = document.createElement('div'); onion.className = 'onion-skin'; onion.style.backgroundColor = materials[buildingData[currentLayer - 1][y][x]].color; cell.appendChild(onion);
                     }
 
                     if (currentTool === 'rect' && isMouseDown && rectStartX !== -1) {
-                        if (x >= rMinX && x <= rMaxX && y >= rMinY && y <= rMaxY) cell.classList.add('preview-rect');
+                        if (x >= rMinX && x >= rMinY && x <= rMaxX && y <= rMaxY) cell.classList.add('preview-rect');
                     }
 
                     cell.onmouseenter = () => {
-                        if (!isMouseDown) {
-                            if (materials[selectedMat] && materials[selectedMat].symbol) {
-                                cell.setAttribute('data-preview', materials[selectedMat].symbol);
-                            }
+                        if (!isMouseDown) { if (materials[selectedMat] && materials[selectedMat].symbol) cell.setAttribute('data-preview', materials[selectedMat].symbol);
                         } else {
-                            if (currentTool === 'pen') {
-                                buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat;
-                                stateChanged = true; drawGrid(); update3DSafe();
-                            } else {
-                                rectEndX = x; rectEndY = y; drawGrid();
-                            }
+                            if (currentTool === 'pen') { buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat; stateChanged = true; drawGrid(); update3DSafe(); } else { rectEndX = x; rectEndY = y; drawGrid(); }
                         }
                     };
-
                     cell.onmouseleave = () => { cell.removeAttribute('data-preview'); };
-
                     cell.onmousedown = () => {
                         isMouseDown = true;
-                        if (currentTool === 'pen') {
-                            paintMode = (matId === selectedMat && selectedMat !== 0) ? 'erase' : 'paint';
-                            buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat;
-                            stateChanged = true; drawGrid(); update3DSafe();
-                        } else {
-                            rectStartX = x; rectStartY = y; rectEndX = x; rectEndY = y; drawGrid();
-                        }
+                        if (currentTool === 'pen') { paintMode = (matId === selectedMat && selectedMat !== 0) ? 'erase' : 'paint'; buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat; stateChanged = true; drawGrid(); update3DSafe(); } else { rectStartX = x; rectStartY = y; rectEndX = x; rectEndY = y; drawGrid(); }
                     };
-
                     gridDiv.appendChild(cell);
                 }
             }
-            document.getElementById('layer-text').innerText = `${currentLayer + 1} 단`;
-            document.getElementById('btn-down').disabled = currentLayer === 0;
-            document.getElementById('btn-up').disabled = currentLayer === LAYERS - 1;
+            document.getElementById('layer-text').innerText = `${currentLayer + 1} 단`; document.getElementById('btn-down').disabled = currentLayer === 0; document.getElementById('btn-up').disabled = currentLayer === LAYERS - 1;
         }
 
         document.getElementById('btn-up').onclick = () => { if (currentLayer < LAYERS - 1) { currentLayer++; drawGrid(); } };
         document.getElementById('btn-down').onclick = () => { if (currentLayer > 0) { currentLayer--; drawGrid(); } };
-        document.getElementById('btn-onion').onclick = (e) => {
-            showOnionSkin = !showOnionSkin;
-            e.target.innerText = showOnionSkin ? "비치기 ON" : "비치기 OFF";
-            e.target.style.background = showOnionSkin ? "#2196F3" : "#999";
-            drawGrid();
-        };
+        document.getElementById('btn-onion').onclick = (e) => { showOnionSkin = !showOnionSkin; e.target.innerText = showOnionSkin ? "비치기 ON" : "비치기 OFF"; e.target.style.background = showOnionSkin ? "#2196F3" : "#999"; drawGrid(); };
 
         // --- 7. 3D 프리뷰 ---
         let scene, camera, renderer, controls, buildingGroup;
         let cubeGeometry, thinBoxGeometry, wedgeGeometry, cornerGeom;
+        let trackStraightGeom, trackBox1Geom, trackBox2Geom, trackRampGeom; // 기찻길 전용
         let edgeMaterial, cubeEdges, slopeEdges, cornerEdges, thinEdges;
+        let trackStraightEdges, trackBox1Edges, trackBox2Edges, trackRampEdges;
         let is3DReady = false;
 
         function init3D() {
             const container3d = document.getElementById('canvas3d');
-            if (typeof THREE === 'undefined') {
-                container3d.innerHTML = "<div style='color:red; text-align:center;'><b>3D 엔진 로딩 실패</b><br>💡 2D 에디터는 계속 사용할 수 있습니다.</div>";
-                return;
-            }
-
-            container3d.innerHTML = ''; 
-            is3DReady = true;
+            if (typeof THREE === 'undefined') { container3d.innerHTML = "<div style='color:red; text-align:center;'><b>3D 엔진 로딩 실패</b></div>"; return; }
+            container3d.innerHTML = ''; is3DReady = true;
 
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(45, container3d.clientWidth / container3d.clientHeight, 0.1, 1000);
-            
-            // ✨ 핵심: 캡처를 위해 preserveDrawingBuffer 속성을 true로 켬
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-            renderer.setSize(container3d.clientWidth, container3d.clientHeight);
-            container3d.appendChild(renderer.domElement);
+            renderer.setSize(container3d.clientWidth, container3d.clientHeight); container3d.appendChild(renderer.domElement);
 
             camera.position.set(SIZE * 1.2, Math.max(SIZE * 0.8, 15), SIZE * 1.2);
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.target.set(SIZE / 2, 0, SIZE / 2); controls.update();
-
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(10, 20, 10); scene.add(dirLight);
+            controls = new THREE.OrbitControls(camera, renderer.domElement); controls.target.set(SIZE / 2, 0, SIZE / 2); controls.update();
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6)); const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(10, 20, 10); scene.add(dirLight);
 
             buildingGroup = new THREE.Group(); scene.add(buildingGroup);
 
+            // 기본 구조물들
             cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
             thinBoxGeometry = new THREE.BoxGeometry(1, 1, 0.1);
+            const triangleShape = new THREE.Shape(); triangleShape.moveTo(-0.5, -0.5); triangleShape.lineTo(0.5, -0.5); triangleShape.lineTo(-0.5, 0.5); triangleShape.lineTo(-0.5, -0.5);
+            wedgeGeometry = new THREE.ExtrudeGeometry(triangleShape, { depth: 1, bevelEnabled: false }); wedgeGeometry.translate(0, 0, -0.5); 
+            cornerGeom = new THREE.ConeGeometry(Math.sqrt(2)/2, 1, 4); cornerGeom.rotateY(Math.PI / 4);
 
-            const triangleShape = new THREE.Shape();
-            triangleShape.moveTo(-0.5, -0.5); 
-            triangleShape.lineTo(0.5, -0.5); 
-            triangleShape.lineTo(-0.5, 0.5); 
-            triangleShape.lineTo(-0.5, -0.5);
-            wedgeGeometry = new THREE.ExtrudeGeometry(triangleShape, { depth: 1, bevelEnabled: false });
-            wedgeGeometry.translate(0, 0, -0.5); 
-
-            cornerGeom = new THREE.ConeGeometry(Math.sqrt(2)/2, 1, 4);
-            cornerGeom.rotateY(Math.PI / 4);
+            // ✨ 기찻길 전용 3D 지오메트리 세팅 (아주 정교하게 바닥에 붙음) ✨
+            trackStraightGeom = new THREE.BoxGeometry(0.6, 0.1, 1);
+            trackBox1Geom = new THREE.BoxGeometry(0.6, 0.1, 0.8); trackBox1Geom.translate(0, 0, -0.1); // 코너 북쪽 블록
+            trackBox2Geom = new THREE.BoxGeometry(0.8, 0.1, 0.6); trackBox2Geom.translate(0.1, 0, 0);  // 코너 동쪽 블록
+            trackRampGeom = new THREE.BoxGeometry(0.6, 0.1, 1.414); // 경사로 빗변 길이
 
             edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
-            cubeEdges = new THREE.EdgesGeometry(cubeGeometry);
-            slopeEdges = new THREE.EdgesGeometry(wedgeGeometry);
-            cornerEdges = new THREE.EdgesGeometry(cornerGeom);
-            thinEdges = new THREE.EdgesGeometry(thinBoxGeometry);
+            cubeEdges = new THREE.EdgesGeometry(cubeGeometry); slopeEdges = new THREE.EdgesGeometry(wedgeGeometry);
+            cornerEdges = new THREE.EdgesGeometry(cornerGeom); thinEdges = new THREE.EdgesGeometry(thinBoxGeometry);
+            
+            trackStraightEdges = new THREE.EdgesGeometry(trackStraightGeom);
+            trackBox1Edges = new THREE.EdgesGeometry(trackBox1Geom);
+            trackBox2Edges = new THREE.EdgesGeometry(trackBox2Geom);
+            trackRampEdges = new THREE.EdgesGeometry(trackRampGeom);
 
             update3DSafe(); animate();
         }
 
         function update3DSafe() {
             if (!is3DReady) return; 
-
-            scene.remove(buildingGroup);
-            buildingGroup = new THREE.Group();
+            scene.remove(buildingGroup); buildingGroup = new THREE.Group();
 
             for (let l = 0; l < LAYERS; l++) {
                 for (let y = 0; y < SIZE; y++) {
                     for (let x = 0; x < SIZE; x++) {
-                        const matId = buildingData[l][y][x];
-                        if (matId === 0) continue;
-
+                        const matId = buildingData[l][y][x]; if (matId === 0) continue;
                         const matInfo = materials[matId];
                         const material = new THREE.MeshLambertMaterial({ color: matInfo.hex, transparent: matInfo.transparent || false, opacity: matInfo.opacity || 1.0, side: THREE.DoubleSide });
 
                         let mesh, edgesGeo;
-                        if (matInfo.type === 'roof_slope') {
-                            mesh = new THREE.Mesh(wedgeGeometry, material); edgesGeo = slopeEdges;
-                        } else if (matInfo.type === 'roof_corner') {
-                            mesh = new THREE.Mesh(cornerGeom, material); edgesGeo = cornerEdges;
-                        } else if (matInfo.type === 'thin_window' || matInfo.type === 'thin_door') { 
-                            mesh = new THREE.Mesh(thinBoxGeometry, material); edgesGeo = thinEdges;
-                        } else { 
-                            mesh = new THREE.Mesh(cubeGeometry, material); edgesGeo = cubeEdges;
+                        
+                        // ✨ 기찻길 렌더링 로직 ✨
+                        if (matInfo.type === 'track_straight') {
+                            mesh = new THREE.Mesh(trackStraightGeom, material);
+                            mesh.position.set(x + 0.5, l + 0.05, y + 0.5); // 바닥에 착 붙음!
+                            mesh.rotation.y = matInfo.rotY;
+                            mesh.add(new THREE.LineSegments(trackStraightEdges, edgeMaterial));
+                            buildingGroup.add(mesh);
+                            continue;
+                        } else if (matInfo.type === 'track_corner') {
+                            // L자 모양을 만들기 위해 두 개의 박스를 겹침
+                            mesh = new THREE.Group();
+                            const m1 = new THREE.Mesh(trackBox1Geom, material);
+                            const m2 = new THREE.Mesh(trackBox2Geom, material);
+                            m1.add(new THREE.LineSegments(trackBox1Edges, edgeMaterial));
+                            m2.add(new THREE.LineSegments(trackBox2Edges, edgeMaterial));
+                            mesh.add(m1); mesh.add(m2);
+                            mesh.position.set(x + 0.5, l + 0.05, y + 0.5);
+                            mesh.rotation.y = matInfo.rotY;
+                            buildingGroup.add(mesh);
+                            continue;
+                        } else if (matInfo.type === 'track_ramp') {
+                            mesh = new THREE.Mesh(trackRampGeom, material);
+                            mesh.position.set(x + 0.5, l + 0.5, y + 0.5); // 중심이 1단 높이의 절반
+                            mesh.rotation.x = Math.PI / 4; // 45도로 들어올림 (오르막)
+                            mesh.rotation.y = matInfo.rotY;
+                            mesh.add(new THREE.LineSegments(trackRampEdges, edgeMaterial));
+                            buildingGroup.add(mesh);
+                            continue;
                         }
+                        
+                        // 기본 블록들
+                        if (matInfo.type === 'roof_slope') { mesh = new THREE.Mesh(wedgeGeometry, material); edgesGeo = slopeEdges; } 
+                        else if (matInfo.type === 'roof_corner') { mesh = new THREE.Mesh(cornerGeom, material); edgesGeo = cornerEdges; } 
+                        else if (matInfo.type === 'thin_window' || matInfo.type === 'thin_door') { mesh = new THREE.Mesh(thinBoxGeometry, material); edgesGeo = thinEdges; } 
+                        else { mesh = new THREE.Mesh(cubeGeometry, material); edgesGeo = cubeEdges; }
                         
                         mesh.position.set(x + 0.5, l + 0.5, y + 0.5);
                         if (matInfo.rotY !== undefined) mesh.rotation.y = matInfo.rotY;
-                        
                         mesh.add(new THREE.LineSegments(edgesGeo, edgeMaterial));
                         buildingGroup.add(mesh);
                     }
@@ -630,48 +571,18 @@
             scene.add(buildingGroup);
         }
 
-        function animate() { 
-            if(!is3DReady) return;
-            requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); 
-        }
-
-        // ✨ 3D 이미지 캡처 기능 ✨
+        function animate() { if(!is3DReady) return; requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
         window.capture3D = function() {
-            if (!is3DReady) {
-                alert("3D 화면이 준비되지 않았습니다.");
-                return;
-            }
-            
-            // 캡처 직전 최신 화면으로 한번 더 강제 렌더링
-            renderer.render(scene, camera);
-            
-            // Canvas 데이터를 이미지 URL로 변환
+            if (!is3DReady) return; renderer.render(scene, camera);
             const dataURL = renderer.domElement.toDataURL("image/png");
-            
             let fileName = prompt("저장할 이미지 이름을 입력하세요:", "pokopia_3d_preview");
-            if (fileName === null) return;
-            
-            fileName = fileName.trim();
-            if (fileName === "") fileName = "pokopia_3d_preview";
+            if (fileName === null) return; fileName = fileName.trim() || "pokopia_3d_preview";
             if (!fileName.endsWith('.png')) fileName += '.png';
-
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = fileName;
-            a.click();
+            const a = document.createElement('a'); a.href = dataURL; a.download = fileName; a.click();
         };
 
-        window.addEventListener('resize', () => { 
-            if(!is3DReady) return;
-            const container3d = document.getElementById('canvas3d');
-            camera.aspect = container3d.clientWidth / container3d.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container3d.clientWidth, container3d.clientHeight); 
-        });
-
-        try {
-            initPalette(); saveHistory(); drawGrid(); init3D();
-        } catch (error) {
-            console.error(error);
-        }
+        window.addEventListener('resize', () => { if(!is3DReady) return; const container3d = document.getElementById('canvas3d'); camera.aspect = container3d.clientWidth / container3d.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container3d.clientWidth, container3d.clientHeight); });
+        try { initPalette(); saveHistory(); drawGrid(); init3D(); } catch (error) { console.error(error); }
     </script>
 </body>
 </html>
