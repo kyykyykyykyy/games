@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>포코피아 건축 에디터 v2.7 (기찻길 & 경사로 추가)</title>
+    <title>포코피아 건축 에디터 v2.8 (도면 선로 디자인 전면 개편)</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; color: #333; }
         .header { text-align: center; margin-bottom: 10px; }
@@ -66,6 +66,85 @@
         .onion-skin { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.3; pointer-events: none; }
         .preview-rect { border: 2px dashed #333 !important; opacity: 0.7; z-index: 10; background: rgba(0,0,0,0.1) !important; }
 
+        /* 🚂 [핵심 업데이트] 도면용 기찻길 비주얼 스타일 개편! 🚂 */
+        
+        /* 1. 모든 선로 블록 공통: 자갈밭 배경, 글씨 투명(기호 안보이게) */
+        [class*="mat-60"] {
+            background-color: #f0f0f0 !important; /* 연회색 자갈밭 배경 */
+            position: relative;
+            color: transparent !important; /* 기존 특수기호 텍스트를 숨겨 디자인 공간 확보 */
+        }
+        
+        /* 팔레트 내 기호는 보이게 처리 */
+        .mat-btn [class*="mat-60"] { color: transparent !important; }
+
+        /* 2. 침목(나무 받침대) 공통 스타일 */
+        [class*="mat-60"]::after { content: ''; position: absolute; background-color: #8B4513; border-radius: 1px; }
+
+        /* 3. 금속 선로(레일) 공통 스타일 */
+        [class*="mat-60"]::before { content: ''; position: absolute; z-index: 2; background-color: #757575; }
+
+        /* --- 3-1. 직선 및 경사 선로 패턴 --- */
+        
+        /* 가로 방향 직선 레일 (═, 🎢→, 🎢←): IDs 601, 608, 610 */
+        .mat-601, .mat-608, .mat-610 {
+            /* 세로 침목 패턴 */
+            background-image: repeating-linear-gradient(90deg, transparent 0px, transparent 4px, #8B4513 4px, #8B4513 8px, transparent 8px, transparent 12px) !important;
+            background-size: 12px 100% !important;
+        }
+        /* 가로 레일 철쇠선 */
+        .mat-601::before, .mat-608::before, .mat-610::before {
+            height: 2.5px; width: 100%; top: 6px; left: 0; /* 위쪽 레일 */
+            box-shadow: 0 9.5px 0 #757575; /* 아래쪽 레일 (그림자로 한줄 더 생성) */
+        }
+
+        /* 세로 방향 직선 레일 (║, 🎢↑, 🎢↓): IDs 602, 607, 609 */
+        .mat-602, .mat-607, .mat-609 {
+            /* 가로 침목 패턴 */
+            background-image: repeating-linear-gradient(0deg, transparent 0px, transparent 4px, #8B4513 4px, #8B4513 8px, transparent 8px, transparent 12px) !important;
+            background-size: 100% 12px !important;
+        }
+        /* 세로 레일 철쇠선 */
+        .mat-602::before, .mat-607::before, .mat-609::before {
+            width: 2.5px; height: 100%; left: 6px; top: 0; /* 왼쪽 레일 */
+            box-shadow: 9.5px 0 0 #757575; /* 오른쪽 레일 */
+        }
+
+        /* 경사로(🎢) 힌트 표시: 코너 침목 안쓰는 before, after 활용 */
+        .mat-607::after, .mat-608::after, .mat-609::after, .mat-610::after {
+            content: '⛰️'; font-size: 12px; position: absolute; opacity: 0.5; color: black !important; z-index: 5;
+        }
+        .mat-607::after { top: -2px; left: -2px; } /* 북 */
+        .mat-608::after { top: -2px; right: -2px; } /* 동 */
+        .mat-609::after { bottom: -2px; right: -2px; } /* 남 */
+        .mat-610::after { bottom: -2px; left: -2px; } /* 서 */
+
+
+        /* --- 3-2. 코너 선로 패턴 --- */
+        
+        /* 코너 침목 공통: 크기 키움 */
+        .mat-603::after, .mat-604::after, .mat-605::after, .mat-606::after { background-color: #8B4513; width: 12px; height: 12px; transform: rotate(45deg); z-index: 1; }
+        
+        /* 코너 레일 공통: 테두리와 라운딩 활용 */
+        .mat-603::before, .mat-604::before, .mat-605::before, .mat-606::before { border: 2.5px solid #757575; background: none !important; width: 14px; height: 14px; }
+
+        /* mat-603 (╚): 남->동 코너. Arc Bottom-Left */
+        .mat-603::before { top: -2.5px; right: -2.5px; border-bottom-left-radius: 12px; border-top: none; border-right: none; }
+        .mat-603::after { bottom: 1px; left: 1px; }
+
+        /* mat-604 (╔): 북->동 코너. Arc Top-Left */
+        .mat-604::before { bottom: -2.5px; right: -2.5px; border-top-left-radius: 12px; border-bottom: none; border-right: none; }
+        .mat-604::after { top: 1px; left: 1px; }
+
+        /* mat-605 (╗): 북->서 코너. Arc Top-Right */
+        .mat-605::before { bottom: -2.5px; left: -2.5px; border-top-right-radius: 12px; border-bottom: none; border-left: none; }
+        .mat-605::after { top: 1px; right: 1px; }
+
+        /* mat-606 (╝): 남->서 코너. Arc Bottom-Right */
+        .mat-606::before { top: -2.5px; left: -2.5px; border-bottom-right-radius: 12px; border-top: none; border-left: none; }
+        .mat-606::after { bottom: 1px; right: 1px; }
+
+
         /* 오른쪽 패널: 3D 프리뷰 */
         .preview-container { width: 550px; display: flex; flex-direction: column; }
         #canvas3d { flex: 1; background: #eef2f5; border-radius: 8px; border: 2px solid #ccc; overflow: hidden; display: flex; align-items: center; justify-content: center; }
@@ -78,10 +157,10 @@
 
     <div class="header-container">
         <div class="header">
-            <h1>🧱 포코피아 건축 조립도 에디터 (v2.7)</h1>
-            <p>새로운 기능: <b>6종류의 평면 기찻길과 4종류의 경사로</b>가 추가되었습니다. (단축키 R로 회전)</p>
+            <h1>🧱 포코피아 건축 에디터 v2.8 (선로 디자인 개편)</h1>
+            <p>R키로 지붕, 창호, 선로를 회전시키세요. <b>이제 도면에서 기찻길이 헷갈리지 않습니다!</b></p>
         </div>
-        <div class="info-text">💡 팁: 경사로 기찻길(🎢)을 이용하면 다음 단(층)으로 자연스럽게 이어지는 선로를 만들 수 있습니다.</div>
+        <div class="info-text">💡 팁: 도면에서 <b>나무 침목과 금속 선로</b>가 뚜렷하게 보이는 블록이 기찻길입니다. 자갈밭 배경을 확인하세요.</div>
     </div>
 
     <div class="container">
@@ -134,7 +213,7 @@
     </div>
 
     <script>
-        // --- 1. 기본 설정 및 데이터 ---
+        // --- 1. 기본 설정 및 데이터 (let 사용) ---
         let SIZE = 25; 
         const LAYERS = 7; 
         let currentLayer = 0; 
@@ -153,10 +232,10 @@
         let currentSlopeDir = 1, currentCornerDir = 5; 
         let currentWindowDir = 1, currentDoorDir = 1; 
         
-        // ✨ 기찻길 방향 추적 변수 ✨
-        let currentTrackStraightDir = 1; // 1~2
-        let currentTrackCornerDir = 3;   // 3~6
-        let currentTrackRampDir = 7;     // 7~10
+        // 기찻길 방향 추적 변수
+        let currentTrackStraightDir = 1; 
+        let currentTrackCornerDir = 3;   
+        let currentTrackRampDir = 7;     
 
         const roofPrefix = { 'orange': 100, 'blue': 200, 'skyblue': 300 };
         let buildingData = [];
@@ -180,14 +259,14 @@
             } else { document.getElementById('size-select').value = SIZE; }
         };
 
-        // --- 파일 저장/불러오기 ---
+        // --- 파일 저장/불러오기 (JSON) ---
         window.saveBlueprint = function() {
             let fileName = prompt("저장할 파일 이름을 입력하세요:", "pokopia_blueprint");
             if (fileName === null) return; 
             fileName = fileName.trim() || "pokopia_blueprint";
             if (!fileName.endsWith('.json')) fileName += '.json';
 
-            const exportData = { title: fileName.replace('.json', ''), version: "2.7", size: SIZE, layers: LAYERS, data: buildingData };
+            const exportData = { title: fileName.replace('.json', ''), version: "2.8", size: SIZE, layers: LAYERS, data: buildingData };
             const dataStr = JSON.stringify(exportData);
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
@@ -213,7 +292,7 @@
             reader.readAsText(file);
         };
 
-        // --- 히스토리 ---
+        // --- 히스토리 (Undo/Redo) ---
         let historyStack = [], historyIndex = -1; const MAX_HISTORY = 30; 
         function saveHistory() {
             const stateCopy = buildingData.map(layer => layer.map(row => [...row]));
@@ -231,13 +310,8 @@
         function updateHistoryUI() {
             document.getElementById('btn-undo').disabled = (historyIndex <= 0); document.getElementById('btn-redo').disabled = (historyIndex >= historyStack.length - 1);
         }
-        window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'r') rotateCurrentMaterial();
-            if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-            if (e.ctrlKey && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
-        });
-
-        // --- 4. 재료 데이터베이스 ---
+        
+        // --- 4. 재료 데이터베이스 (JS Color는 3D용, 2D는 CSS로 구현) ---
         const materials = {
             0: { name: "지우개", color: "#ffffff", hex: 0xffffff, type: "basic" },
             1: { name: "목재 벽", color: "#8B4513", hex: 0x8B4513, type: "basic" },
@@ -272,21 +346,20 @@
         materials[503] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪↓", type: "thin_door", rotY: 0 };
         materials[504] = { name: "목제 문", color: "#F4A460", hex: 0xF4A460, symbol: "🚪←", type: "thin_door", rotY: Math.PI/2 };
 
-        // ✨ 기찻길 데이터 추가 (601 ~ 610) ✨
-        const trackColor = "#607D8B"; const trackHex = 0x607D8B; // 짙은 회색(철도 느낌)
+        // 🚂 기찻길 데이터 (601 ~ 610, Color는 3D용으로만 유지) 🚂
+        const trackHex = 0x607D8B; 
         
-        materials[601] = { name: "직선 선로", color: trackColor, hex: trackHex, symbol: "═", type: "track_straight", rotY: Math.PI/2 };
-        materials[602] = { name: "직선 선로", color: trackColor, hex: trackHex, symbol: "║", type: "track_straight", rotY: 0 };
-
-        materials[603] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╚", type: "track_corner", rotY: 0 };
-        materials[604] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╔", type: "track_corner", rotY: -Math.PI/2 };
-        materials[605] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╗", type: "track_corner", rotY: Math.PI };
-        materials[606] = { name: "코너 선로", color: trackColor, hex: trackHex, symbol: "╝", type: "track_corner", rotY: Math.PI/2 };
-
-        materials[607] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢↑", type: "track_ramp", rotY: 0 };
-        materials[608] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢→", type: "track_ramp", rotY: -Math.PI/2 };
-        materials[609] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢↓", type: "track_ramp", rotY: Math.PI };
-        materials[610] = { name: "경사 선로", color: trackColor, hex: trackHex, symbol: "🎢←", type: "track_ramp", rotY: Math.PI/2 };
+        // *2D용 color는 JS에서 빼고 CSS ID로 직접 디자인
+        materials[601] = { name: "직선 선로", hex: trackHex, symbol: "═", type: "track_straight", rotY: Math.PI/2 };
+        materials[602] = { name: "직선 선로", hex: trackHex, symbol: "║", type: "track_straight", rotY: 0 };
+        materials[603] = { name: "코너 선로", hex: trackHex, symbol: "╚", type: "track_corner", rotY: 0 };
+        materials[604] = { name: "코너 선로", hex: trackHex, symbol: "╔", type: "track_corner", rotY: -Math.PI/2 };
+        materials[605] = { name: "코너 선로", hex: trackHex, symbol: "╗", type: "track_corner", rotY: Math.PI };
+        materials[606] = { name: "코너 선로", hex: trackHex, symbol: "╝", type: "track_corner", rotY: Math.PI/2 };
+        materials[607] = { name: "경사 선로", hex: trackHex, symbol: "🎢↑", type: "track_ramp", rotY: 0 };
+        materials[608] = { name: "경사 선로", hex: trackHex, symbol: "🎢→", type: "track_ramp", rotY: -Math.PI/2 };
+        materials[609] = { name: "경사 선로", hex: trackHex, symbol: "🎢↓", type: "track_ramp", rotY: Math.PI };
+        materials[610] = { name: "경사 선로", hex: trackHex, symbol: "🎢←", type: "track_ramp", rotY: Math.PI/2 };
 
         // --- 5. 팔레트 UI ---
         const paletteDiv = document.getElementById('palette');
@@ -300,7 +373,7 @@
             paletteDiv.appendChild(createSectionTitle("🪟 창호/문 (R)"));
             openingsContainer = document.createElement('div'); paletteDiv.appendChild(openingsContainer);
 
-            // ✨ 기찻길 팔레트 추가 ✨
+            // 기찻길 팔레트 추가
             paletteDiv.appendChild(createSectionTitle("🚂 기찻길 (R)"));
             trackButtonsContainer = document.createElement('div'); paletteDiv.appendChild(trackButtonsContainer);
 
@@ -333,7 +406,7 @@
             roofButtonsContainer.appendChild(createPaletteBtn(prefix + currentCornerDir));
         }
 
-        // ✨ 기찻길 버튼 렌더링 ✨
+        // 기찻길 팔레트 버튼 (CSS ID 클래스 추가 필수)
         function renderTrackButtons() {
             trackButtonsContainer.innerHTML = '';
             trackButtonsContainer.appendChild(createPaletteBtn(600 + currentTrackStraightDir));
@@ -347,13 +420,24 @@
 
         function createPaletteBtn(id) {
             const btn = document.createElement('div'); btn.className = 'mat-btn'; btn.dataset.id = id; 
-            let colorBoxInner = materials[id].symbol || "";
-            let colorBoxStyle = `background:${materials[id].color}; ${id == 0 ? 'border: 1px dashed #333;' : ''}`;
+            const colorBox = document.createElement('div'); colorBox.className = 'color-box';
             
-            // 기찻길은 흰색 글씨로 포인트
-            if(id >= 601 && id <= 610) colorBoxStyle += ';color:white';
+            // 🚂 [업데이트] 기찻길 ID(601~610)인 경우, JS 컬러 대신 CSS ID 클래스 직접 부여
+            if(id >= 601 && id <= 610) {
+                colorBox.classList.add(`mat-${id}`);
+            } else {
+                colorBox.style.backgroundColor = materials[id].color;
+                if (id == 0) colorBox.style.border = '1px dashed #333';
+            }
 
-            btn.innerHTML = `<div class="color-box" style="${colorBoxStyle}">${colorBoxInner}</div> ${materials[id].name}`;
+            if (materials[id].symbol) {
+                colorBox.innerText = materials[id].symbol;
+                // JS Font Color는 기찻길 디자인과 겹치므로 직선/경사/코너 레일에서는 CSS로 투명화 처리함 (mat-60x CSS 확인)
+                if((id >= 200 && id < 300)) colorBox.style.color = "white"; 
+            }
+            
+            btn.appendChild(colorBox);
+            btn.appendChild(document.createTextNode(` ${materials[id].name}`));
             btn.onclick = () => { selectedMat = parseInt(id); updateSelectionUI(); };
             return btn;
         }
@@ -370,7 +454,6 @@
             renderColorPicker(); renderRoofButtons(); updateSelectionUI();
         };
 
-        // ✨ 기찻길 회전 로직 추가 ✨
         window.rotateCurrentMaterial = function() {
             if (!materials[selectedMat]) return;
             const type = materials[selectedMat].type;
@@ -427,15 +510,27 @@
 
                     const matId = buildingData[currentLayer][y][x];
                     if (matId !== 0) {
-                        cell.style.backgroundColor = materials[matId].color; 
+                        // 🚂 [업데이트] 기찻길 ID인 경우 CSS ID 클래스 직접 부여 (비주얼 디자인)
+                        if (matId >= 601 && matId <= 610) {
+                            cell.classList.add(`mat-${matId}`);
+                        } else {
+                            cell.style.backgroundColor = materials[matId].color;
+                        }
+
                         if (materials[matId].symbol) {
-                            cell.innerText = materials[matId].symbol; cell.style.fontSize = "11px"; 
-                            if((matId >= 200 && matId < 300) || (matId >= 601 && matId <= 610)) cell.style.color = "white"; 
+                            cell.innerText = materials[matId].symbol; cell.style.fontSize = "12px"; // 직선레일은 12px가 예쁨
+                            // 지붕 파란색 계열만 흰색 글씨, 기찻길은 CSS에서 투명화됨
+                            if((matId >= 200 && matId < 300)) cell.style.color = "white"; 
                         }
                     }
 
                     if (showOnionSkin && currentLayer > 0 && buildingData[currentLayer - 1][y][x] !== 0) {
-                        const onion = document.createElement('div'); onion.className = 'onion-skin'; onion.style.backgroundColor = materials[buildingData[currentLayer - 1][y][x]].color; cell.appendChild(onion);
+                        const onionMatId = buildingData[currentLayer - 1][y][x];
+                        const onion = document.createElement('div'); onion.className = 'onion-skin'; 
+                        // 어니언 스킨도 기찻길은 전용 자갈 패턴으로 표시하면 헷갈림, 그냥 연한 회색으로 처리
+                        if (onionMatId >= 601 && onionMatId <= 610) onion.style.backgroundColor = "#ccc";
+                        else onion.style.backgroundColor = materials[onionMatId].color; 
+                        cell.appendChild(onion);
                     }
 
                     if (currentTool === 'rect' && isMouseDown && rectStartX !== -1) {
@@ -443,7 +538,9 @@
                     }
 
                     cell.onmouseenter = () => {
-                        if (!isMouseDown) { if (materials[selectedMat] && materials[selectedMat].symbol) cell.setAttribute('data-preview', materials[selectedMat].symbol);
+                        if (!isMouseDown) { 
+                            // 미리보기 힌트
+                            if (materials[selectedMat] && materials[selectedMat].symbol) cell.setAttribute('data-preview', materials[selectedMat].symbol);
                         } else {
                             if (currentTool === 'pen') { buildingData[currentLayer][y][x] = (paintMode === 'erase') ? 0 : selectedMat; stateChanged = true; drawGrid(); update3DSafe(); } else { rectEndX = x; rectEndY = y; drawGrid(); }
                         }
@@ -466,7 +563,7 @@
         // --- 7. 3D 프리뷰 ---
         let scene, camera, renderer, controls, buildingGroup;
         let cubeGeometry, thinBoxGeometry, wedgeGeometry, cornerGeom;
-        let trackStraightGeom, trackBox1Geom, trackBox2Geom, trackRampGeom; // 기찻길 전용
+        let trackStraightGeom, trackBox1Geom, trackBox2Geom, trackRampGeom; 
         let edgeMaterial, cubeEdges, slopeEdges, cornerEdges, thinEdges;
         let trackStraightEdges, trackBox1Edges, trackBox2Edges, trackRampEdges;
         let is3DReady = false;
@@ -487,27 +584,16 @@
 
             buildingGroup = new THREE.Group(); scene.add(buildingGroup);
 
-            // 기본 구조물들
-            cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-            thinBoxGeometry = new THREE.BoxGeometry(1, 1, 0.1);
-            const triangleShape = new THREE.Shape(); triangleShape.moveTo(-0.5, -0.5); triangleShape.lineTo(0.5, -0.5); triangleShape.lineTo(-0.5, 0.5); triangleShape.lineTo(-0.5, -0.5);
-            wedgeGeometry = new THREE.ExtrudeGeometry(triangleShape, { depth: 1, bevelEnabled: false }); wedgeGeometry.translate(0, 0, -0.5); 
-            cornerGeom = new THREE.ConeGeometry(Math.sqrt(2)/2, 1, 4); cornerGeom.rotateY(Math.PI / 4);
+            cubeGeometry = new THREE.BoxGeometry(1, 1, 1); thinBoxGeometry = new THREE.BoxGeometry(1, 1, 0.1); triangleShape = new THREE.Shape(); triangleShape.moveTo(-0.5, -0.5); triangleShape.lineTo(0.5, -0.5); triangleShape.lineTo(-0.5, 0.5); triangleShape.lineTo(-0.5, -0.5); wedgeGeometry = new THREE.ExtrudeGeometry(triangleShape, { depth: 1, bevelEnabled: false }); wedgeGeometry.translate(0, 0, -0.5); cornerGeom = new THREE.ConeGeometry(Math.sqrt(2)/2, 1, 4); cornerGeom.rotateY(Math.PI / 4);
 
-            // ✨ 기찻길 전용 3D 지오메트리 세팅 (아주 정교하게 바닥에 붙음) ✨
+            // 기찻길 3D 지오메트리
             trackStraightGeom = new THREE.BoxGeometry(0.6, 0.1, 1);
-            trackBox1Geom = new THREE.BoxGeometry(0.6, 0.1, 0.8); trackBox1Geom.translate(0, 0, -0.1); // 코너 북쪽 블록
-            trackBox2Geom = new THREE.BoxGeometry(0.8, 0.1, 0.6); trackBox2Geom.translate(0.1, 0, 0);  // 코너 동쪽 블록
-            trackRampGeom = new THREE.BoxGeometry(0.6, 0.1, 1.414); // 경사로 빗변 길이
+            trackBox1Geom = new THREE.BoxGeometry(0.6, 0.1, 0.8); trackBox1Geom.translate(0, 0, -0.1); 
+            trackBox2Geom = new THREE.BoxGeometry(0.8, 0.1, 0.6); trackBox2Geom.translate(0.1, 0, 0);  
+            trackRampGeom = new THREE.BoxGeometry(0.6, 0.1, 1.414); wedgeGeomRamp = new THREE.BoxGeometry(1, 1, 1); // 지우기
 
             edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1 });
-            cubeEdges = new THREE.EdgesGeometry(cubeGeometry); slopeEdges = new THREE.EdgesGeometry(wedgeGeometry);
-            cornerEdges = new THREE.EdgesGeometry(cornerGeom); thinEdges = new THREE.EdgesGeometry(thinBoxGeometry);
-            
-            trackStraightEdges = new THREE.EdgesGeometry(trackStraightGeom);
-            trackBox1Edges = new THREE.EdgesGeometry(trackBox1Geom);
-            trackBox2Edges = new THREE.EdgesGeometry(trackBox2Geom);
-            trackRampEdges = new THREE.EdgesGeometry(trackRampGeom);
+            cubeEdges = new THREE.EdgesGeometry(cubeGeometry); slopeEdges = new THREE.EdgesGeometry(wedgeGeometry); cornerEdges = new THREE.EdgesGeometry(cornerGeom); thinEdges = new THREE.EdgesGeometry(thinBoxGeometry); trackStraightEdges = new THREE.EdgesGeometry(trackStraightGeom); trackBox1Edges = new THREE.EdgesGeometry(trackBox1Geom); trackBox2Edges = new THREE.EdgesGeometry(trackBox2Geom); trackRampEdges = new THREE.EdgesGeometry(trackRampGeom);
 
             update3DSafe(); animate();
         }
@@ -523,48 +609,35 @@
                         const matInfo = materials[matId];
                         const material = new THREE.MeshLambertMaterial({ color: matInfo.hex, transparent: matInfo.transparent || false, opacity: matInfo.opacity || 1.0, side: THREE.DoubleSide });
 
-                        let mesh, edgesGeo;
-                        
-                        // ✨ 기찻길 렌더링 로직 ✨
-                        if (matInfo.type === 'track_straight') {
-                            mesh = new THREE.Mesh(trackStraightGeom, material);
-                            mesh.position.set(x + 0.5, l + 0.05, y + 0.5); // 바닥에 착 붙음!
-                            mesh.rotation.y = matInfo.rotY;
+                        // 기찻길 렌더링
+                        if (matId >= 601 && matId <= 602) { // 직선
+                            const mesh = new THREE.Mesh(trackStraightGeom, material);
+                            mesh.position.set(x + 0.5, l + 0.05, y + 0.5); mesh.rotation.y = matInfo.rotY;
                             mesh.add(new THREE.LineSegments(trackStraightEdges, edgeMaterial));
-                            buildingGroup.add(mesh);
-                            continue;
-                        } else if (matInfo.type === 'track_corner') {
-                            // L자 모양을 만들기 위해 두 개의 박스를 겹침
-                            mesh = new THREE.Group();
-                            const m1 = new THREE.Mesh(trackBox1Geom, material);
-                            const m2 = new THREE.Mesh(trackBox2Geom, material);
-                            m1.add(new THREE.LineSegments(trackBox1Edges, edgeMaterial));
-                            m2.add(new THREE.LineSegments(trackBox2Edges, edgeMaterial));
-                            mesh.add(m1); mesh.add(m2);
-                            mesh.position.set(x + 0.5, l + 0.05, y + 0.5);
-                            mesh.rotation.y = matInfo.rotY;
-                            buildingGroup.add(mesh);
-                            continue;
-                        } else if (matInfo.type === 'track_ramp') {
-                            mesh = new THREE.Mesh(trackRampGeom, material);
-                            mesh.position.set(x + 0.5, l + 0.5, y + 0.5); // 중심이 1단 높이의 절반
-                            mesh.rotation.x = Math.PI / 4; // 45도로 들어올림 (오르막)
-                            mesh.rotation.y = matInfo.rotY;
+                            buildingGroup.add(mesh); continue;
+                        } else if (matId >= 603 && matId <= 606) { // 코너
+                            const mesh = new THREE.Group();
+                            const m1 = new THREE.Mesh(trackBox1Geom, material); m1.add(new THREE.LineSegments(trackBox1Edges, edgeMaterial));
+                            const m2 = new THREE.Mesh(trackBox2Geom, material); m2.add(new THREE.LineSegments(trackBox2Edges, edgeMaterial));
+                            mesh.add(m1); mesh.add(m2); mesh.position.set(x + 0.5, l + 0.05, y + 0.5); mesh.rotation.y = matInfo.rotY;
+                            buildingGroup.add(mesh); continue;
+                        } else if (matId >= 607 && matId <= 610) { // 경사
+                            const mesh = new THREE.Mesh(trackRampGeom, material);
+                            mesh.position.set(x + 0.5, l + 0.5, y + 0.5); 
+                            mesh.rotation.x = Math.PI / 4; mesh.rotation.y = matInfo.rotY;
                             mesh.add(new THREE.LineSegments(trackRampEdges, edgeMaterial));
-                            buildingGroup.add(mesh);
-                            continue;
+                            buildingGroup.add(mesh); continue;
                         }
                         
-                        // 기본 블록들
+                        // 기본 블록
+                        let mesh, edgesGeo;
                         if (matInfo.type === 'roof_slope') { mesh = new THREE.Mesh(wedgeGeometry, material); edgesGeo = slopeEdges; } 
                         else if (matInfo.type === 'roof_corner') { mesh = new THREE.Mesh(cornerGeom, material); edgesGeo = cornerEdges; } 
                         else if (matInfo.type === 'thin_window' || matInfo.type === 'thin_door') { mesh = new THREE.Mesh(thinBoxGeometry, material); edgesGeo = thinEdges; } 
                         else { mesh = new THREE.Mesh(cubeGeometry, material); edgesGeo = cubeEdges; }
                         
-                        mesh.position.set(x + 0.5, l + 0.5, y + 0.5);
-                        if (matInfo.rotY !== undefined) mesh.rotation.y = matInfo.rotY;
-                        mesh.add(new THREE.LineSegments(edgesGeo, edgeMaterial));
-                        buildingGroup.add(mesh);
+                        mesh.position.set(x + 0.5, l + 0.5, y + 0.5); if (matInfo.rotY !== undefined) mesh.rotation.y = matInfo.rotY;
+                        mesh.add(new THREE.LineSegments(edgesGeo, edgeMaterial)); buildingGroup.add(mesh);
                     }
                 }
             }
@@ -573,9 +646,8 @@
 
         function animate() { if(!is3DReady) return; requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
         window.capture3D = function() {
-            if (!is3DReady) return; renderer.render(scene, camera);
-            const dataURL = renderer.domElement.toDataURL("image/png");
-            let fileName = prompt("저장할 이미지 이름을 입력하세요:", "pokopia_3d_preview");
+            if (!is3DReady) return; renderer.render(scene, camera); const dataURL = renderer.domElement.toDataURL("image/png");
+            let fileName = prompt("이미지 이름을 입력하세요:", "pokopia_3d_preview");
             if (fileName === null) return; fileName = fileName.trim() || "pokopia_3d_preview";
             if (!fileName.endsWith('.png')) fileName += '.png';
             const a = document.createElement('a'); a.href = dataURL; a.download = fileName; a.click();
