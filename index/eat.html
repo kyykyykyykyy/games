@@ -18,10 +18,21 @@
         .item { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 5px 10px; border: 2px solid #ccc; border-radius: 10px; background: #f9f9f9; transition: 0.2s; user-select: none; width: 45px;}
         .item .emoji { font-size: 26px; } .item .name { font-size: 11px; font-weight: bold; margin-top: 3px; color: #555; }
         .item.selected { background: #c8e6c9; border-color: #4caf50; transform: scale(1.1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .cook-board { background: #fff3e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #ff9800; }
+        .cook-board { background: #fff3e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #ff9800; min-height: 120px; }
+        
         button { background: #ff5722; color: white; border: none; padding: 10px 15px; font-size: 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin: 5px; transition: 0.2s; }
         button:hover { background: #e64a19; transform: scale(1.05); } .btn-maze { background: #4caf50; } .btn-maze:hover { background: #388e3c; } .btn-home { background: #757575; } .btn-home:hover { background: #616161; }
-        #result-msg { margin-top: 15px; font-size: 14px; color: #333; height: 80px; font-weight: bold; line-height: 1.4; }
+        
+        #result-msg { margin-top: 15px; font-size: 14px; color: #333; font-weight: bold; line-height: 1.4; min-height: 80px; }
+        
+        /* 💡 연출을 위한 애니메이션 CSS 추가 */
+        @keyframes boiling { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-5px) rotate(-10deg); } 75% { transform: translateY(5px) rotate(10deg); } }
+        @keyframes gacha { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-15px) scale(1.2); } }
+        
+        #animation-area { display: none; padding: 20px 0; }
+        #anim-emoji { font-size: 50px; display: inline-block; }
+        #anim-text { font-size: 15px; font-weight: bold; color: #e65100; margin-top: 10px; }
+
         #catch-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .timer-box { font-size: 18px; font-weight: bold; color: #d32f2f; background: #ffebee; padding: 5px 10px; border-radius: 5px;}
         #catch-board { width: 100%; max-width: 440px; height: 400px; background: linear-gradient(to bottom, #81d4fa, #b3e5fc); position: relative; overflow: hidden; border-radius: 10px; border: 3px solid #4fc3f7; margin: 0 auto 10px auto; touch-action: none; cursor: pointer; }
@@ -58,9 +69,15 @@
 
         <div class="cook-board">
             <p style="margin: 0 0 10px 0; font-size: 14px;">선택된 재료: <span id="selected-list">없음</span></p>
-            <div style="display: flex; gap: 5px; justify-content: center;">
+            
+            <div id="action-buttons" style="display: flex; gap: 5px; justify-content: center;">
                 <button id="btn-cook" onclick="cook()">🔥 요리하기 (2~5개)</button>
                 <button id="btn-sell" style="background: #9c27b0; display: none;" onclick="sellToCat()">🐱 고양이에게 팔기 (3개)</button>
+            </div>
+
+            <div id="animation-area">
+                <div id="anim-emoji"></div>
+                <div id="anim-text"></div>
             </div>
         </div>
         
@@ -94,6 +111,7 @@
     let health = bongbongData.health;
     let stress = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     let myItems = bongbongData.inventory || []; 
+    let isAnimating = false; // 💡 애니메이션 중 클릭 방지 플래그
 
     document.getElementById('hp-text').innerText = health;
     document.getElementById('stress-text').innerText = stress;
@@ -102,7 +120,6 @@
     const itemEmojis = { "소고기": "🥩", "돼지고기": "🥓", "닭고기": "🍗", "고구마": "🍠", "브로콜리": "🥦", "당근": "🥕", "연어": "🐟", "포도": "🍇", "양파": "🧅", "초콜릿": "🍫" };
     const toxicItems = ["포도", "양파", "초콜릿"]; const allItemTypes = Object.keys(itemEmojis);
 
-    // 💡 특별한 아이템 정의
     const SPECIAL_ITEMS = {
         "황금 뼈다귀": { emoji: "🦴", hp: 50, stress: -50, msg: "전설의 황금 뼈다귀! 봉봉이가 황홀경에 빠집니다." },
         "무지개 사탕": { emoji: "🍭", hp: 0, stress: -100, msg: "스트레스가 싹! 봉봉이가 세상을 다 가진 기분입니다." },
@@ -147,6 +164,28 @@
     function goHome() { window.location.href = 'index.html'; }
     function switchPhase(phaseId) { document.querySelectorAll('.phase').forEach(el => el.classList.remove('active')); document.getElementById(phaseId).classList.add('active'); }
 
+    // 💡 애니메이션 재생 헬퍼 함수
+    function playAnimation(emoji, text, animationCSS, duration, callback) {
+        isAnimating = true;
+        document.getElementById('action-buttons').style.display = 'none';
+        document.getElementById('result-msg').innerHTML = ''; // 기존 결과 지우기
+        
+        const animArea = document.getElementById('animation-area');
+        const animEmoji = document.getElementById('anim-emoji');
+        
+        animArea.style.display = 'block';
+        animEmoji.innerText = emoji;
+        animEmoji.style.animation = animationCSS;
+        document.getElementById('anim-text').innerText = text;
+
+        setTimeout(() => {
+            animArea.style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'flex';
+            isAnimating = false;
+            callback(); // 2초 뒤 결과 실행
+        }, duration);
+    }
+
     function updateInventoryUI() {
         const invenUI = document.getElementById('inventory-ui'); 
         invenUI.innerHTML = ''; 
@@ -174,6 +213,8 @@
     updateInventoryUI();
 
     function selectItem(element, itemName, index) {
+        if(isAnimating) return; // 💡 애니메이션 중에는 재료 클릭 막기
+
         let existingIndex = selectedIngredients.findIndex(val => val.index === index);
         if (existingIndex > -1) { 
             selectedIngredients.splice(existingIndex, 1); 
@@ -193,115 +234,122 @@
 
     // 💡 고양이 상점 가챠 로직
     function sellToCat() {
+        if(isAnimating) return;
         if (selectedIngredients.length !== 3) return;
 
-        // 이스터에그: 유저가 흙묻은 장갑 3개를 냈는지 확인!
-        const gloveCount = selectedIngredients.filter(item => item.name === "흙묻은 장갑").length;
+        // 🐱 가챠 연출 실행! (2초)
+        playAnimation("🐱🎁", "고양이가 주머니를 뒤적거리는 중...", "gacha 0.5s infinite", 2000, () => {
+            const gloveCount = selectedIngredients.filter(item => item.name === "흙묻은 장갑").length;
+            selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
 
-        // 선택한 재료 가방에서 삭제
-        selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
+            if (gloveCount === 3) {
+                document.getElementById('result-msg').innerHTML = `
+                    <div style="background:#ffcdd2; padding:10px; border-radius:10px; border:2px solid #d32f2f;">
+                        <p style="margin:0; font-size:13px; color:#b71c1c;">🐱 시장 고양이: "야!!! 내가 준 소중한 보물을 3개나 모아서 다시 짬처리하냥?! 반품 절대 안 받는다냥!!" 😾💢</p>
+                        <p style="margin:5px 0; font-size:16px; font-weight:bold;">✨ [ 흙묻은 장갑 ] 반환... ✨</p>
+                        <p style="margin:0; font-size:12px; color:#666;">고양이가 화를 내며 장갑 1개를 다시 던지고 도망갔습니다...</p>
+                    </div>
+                `;
+                myItems.push("흙묻은 장갑");
+                bongbongData.inventory = myItems;
+                localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+                updateInventoryUI();
+                return;
+            }
 
-        // 장갑 3개를 줬을 때의 특별 반응
-        if (gloveCount === 3) {
+            const rand = Math.random() * 100;
+            let giftName = "";
+            let catMessage = "🐱 시장 고양이: \"츄르 고맙다냥! 보답으로 이걸 줄게!\"";
+
+            if (rand < 1) { giftName = "황금 뼈다귀"; } 
+            else if (rand < 5) { giftName = "무지개 사탕"; } 
+            else if (rand < 15) { giftName = "특효 영양제"; } 
+            else if (rand < 40) { giftName = "행운의 간식"; } 
+            else { 
+                giftName = "흙묻은 장갑"; 
+                catMessage = "🐱 시장 고양이: \"츄르 잘 먹었다냥! 🐾 이거 내가 진짜 아끼고 아끼는 엄청 좋은 건데 특별히 너 주는 거다냥!\" (당당)";
+            }
+
+            const gift = SPECIAL_ITEMS[giftName];
+            
             document.getElementById('result-msg').innerHTML = `
-                <div style="background:#ffcdd2; padding:10px; border-radius:10px; border:2px solid #d32f2f;">
-                    <p style="margin:0; font-size:13px; color:#b71c1c;">🐱 시장 고양이: "야!!! 내가 준 소중한 보물을 3개나 모아서 다시 짬처리하냥?! 반품 절대 안 받는다냥!!" 😾💢</p>
-                    <p style="margin:5px 0; font-size:16px; font-weight:bold;">✨ [ 흙묻은 장갑 ] 반환... ✨</p>
-                    <p style="margin:0; font-size:12px; color:#666;">고양이가 화를 내며 장갑 1개를 다시 던지고 도망갔습니다...</p>
+                <div style="background:#f3e5f5; padding:10px; border-radius:10px; border:2px solid #9c27b0;">
+                    <p style="margin:0; font-size:13px; color:#7b1fa2;">${catMessage}</p>
+                    <p style="margin:5px 0; font-size:16px; font-weight:bold;">✨ [ ${giftName} ] 획득! ✨</p>
+                    <p style="margin:0; font-size:12px; color:#666;">${gift.msg}</p>
                 </div>
             `;
-            myItems.push("흙묻은 장갑");
+
+            myItems.push(giftName);
             bongbongData.inventory = myItems;
             localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
             updateInventoryUI();
-            return;
-        }
-
-        // 일반 가챠 확률 계산
-        const rand = Math.random() * 100;
-        let giftName = "";
-        let catMessage = "🐱 시장 고양이: \"츄르 고맙다냥! 보답으로 이걸 줄게!\"";
-
-        if (rand < 1) { 
-            giftName = "황금 뼈다귀"; 
-        } else if (rand < 5) { 
-            giftName = "무지개 사탕"; 
-        } else if (rand < 15) { 
-            giftName = "특효 영양제"; 
-        } else if (rand < 40) { 
-            giftName = "행운의 간식"; 
-        } else { 
-            giftName = "흙묻은 장갑"; 
-            catMessage = "🐱 시장 고양이: \"츄르 잘 먹었다냥! 🐾 이거 내가 진짜 아끼고 아끼는 엄청 좋은 건데 특별히 너 주는 거다냥!\" (당당)";
-        }
-
-        const gift = SPECIAL_ITEMS[giftName];
-        
-        // 결과 연출
-        document.getElementById('result-msg').innerHTML = `
-            <div style="background:#f3e5f5; padding:10px; border-radius:10px; border:2px solid #9c27b0;">
-                <p style="margin:0; font-size:13px; color:#7b1fa2;">${catMessage}</p>
-                <p style="margin:5px 0; font-size:16px; font-weight:bold;">✨ [ ${giftName} ] 획득! ✨</p>
-                <p style="margin:0; font-size:12px; color:#666;">${gift.msg}</p>
-            </div>
-        `;
-
-        myItems.push(giftName);
-        bongbongData.inventory = myItems;
-        localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
-        
-        updateInventoryUI();
+        });
     }
 
+    // 💡 요리하기 로직
     function cook() {
-        const hasSpecial = selectedIngredients.find(i => SPECIAL_ITEMS[i.name]);
+        if(isAnimating) return;
         
-        if (hasSpecial && selectedIngredients.length === 1) {
-            const item = SPECIAL_ITEMS[hasSpecial.name];
-            updateStats(item.hp, item.stress);
-            document.getElementById('result-msg').innerHTML = `<span style="color:#9c27b0;">[ ${hasSpecial.name} ]</span> 사용 완료!<br>${item.msg}`;
-            
-            selectedIngredients.forEach(val => myItems.splice(val.index, 1));
-            bongbongData.inventory = myItems;
-            localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
-            updateInventoryUI();
-            return;
-        }
+        // 맹독 체크는 애니메이션 전에 즉시 실행!
+        let hasToxic = selectedIngredients.find(item => toxicItems.includes(item.name));
+        if (hasToxic) { document.getElementById('gameover-reason').innerText = `미쳤습니까 휴먼?! 강아지에게 치명적인 맹독 [${hasToxic.name}]을(를) 먹였습니다!`; switchPhase('hospital-phase'); return; }
 
-        if (hasSpecial) {
+        const hasSpecial = selectedIngredients.find(i => SPECIAL_ITEMS[i.name]);
+        if (hasSpecial && selectedIngredients.length > 1) {
             alert("특별한 아이템은 섞어 쓰지 말고 단독(1개)으로 사용해 주세요!");
             return;
         }
 
         let count = selectedIngredients.length;
-        if (count < 2 || count > 5) { alert("요리하려면 재료를 2~5개 넣어주세요."); return; }
-        let hasToxic = selectedIngredients.find(item => toxicItems.includes(item.name));
-        if (hasToxic) { document.getElementById('gameover-reason').innerText = `미쳤습니까 휴먼?! 강아지에게 치명적인 맹독 [${hasToxic.name}]을(를) 먹였습니다!`; switchPhase('hospital-phase'); return; }
+        if (!hasSpecial && (count < 2 || count > 5)) { alert("요리하려면 재료를 2~5개 넣어주세요."); return; }
 
-        let counts = { "소고기": 0, "돼지고기": 0, "닭고기": 0, "고구마": 0, "브로콜리": 0, "당근": 0, "연어": 0 };
-        selectedIngredients.forEach(item => { if(counts[item.name] !== undefined) counts[item.name]++; });
+        // 🍲 요리 연출 실행! (1.5초)
+        const animEmoji = hasSpecial ? "✨" : "🍲";
+        const animText = hasSpecial ? "특별한 아이템을 사용하는 중..." : "보글보글... 맛있는 요리가 완성되는 중!";
+        
+        playAnimation(animEmoji, animText, "boiling 0.4s infinite", 1500, () => {
+            
+            // 특별 아이템 사용 결과
+            if (hasSpecial) {
+                const item = SPECIAL_ITEMS[hasSpecial.name];
+                updateStats(item.hp, item.stress);
+                document.getElementById('result-msg').innerHTML = `<span style="color:#9c27b0;">[ ${hasSpecial.name} ]</span> 사용 완료!<br>${item.msg}`;
+                
+                selectedIngredients.forEach(val => myItems.splice(val.index, 1));
+                bongbongData.inventory = myItems;
+                localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+                updateInventoryUI();
+                return;
+            }
 
-        let protein = counts["소고기"] + counts["돼지고기"] + counts["닭고기"] + counts["연어"];
-        let veggie = counts["브로콜리"] + counts["당근"]; let sweet = counts["고구마"];
-        let dishName = ""; let reaction = ""; let hpChange = 0; let stressChange = 0; 
+            // 일반 요리 결과
+            let counts = { "소고기": 0, "돼지고기": 0, "닭고기": 0, "고구마": 0, "브로콜리": 0, "당근": 0, "연어": 0 };
+            selectedIngredients.forEach(item => { if(counts[item.name] !== undefined) counts[item.name]++; });
 
-        if (counts["소고기"] > 0 && counts["연어"] > 0 && veggie === 0) { dishName = "최고급 서프 앤 터프 특식"; reaction = getRandomMsg(msgSurfAndTurf) + ` <br>(건강 -5, 스트레스 -15 풀림✨)`; hpChange = -5; stressChange = -15; } 
-        else if (veggie > protein && veggie > 0) { dishName = "초록빛 풀때기 범벅"; reaction = getRandomMsg(msgVeggieFail) + ` <br>(스트레스! 건강 -5, 스트레스 +15😡)`; hpChange = -5; stressChange = 15; } 
-        else if (veggie > 0 && protein >= veggie) { dishName = "야채 쏙 숨긴 고기완자"; reaction = getRandomMsg(msgVeggieHidden) + ` <br>(균형 잡힌 식단! 건강 +10)`; hpChange = 10; stressChange = 0; } 
-        else if (protein === count) { dishName = "단백질 폭탄 파티"; reaction = getRandomMsg(msgMeatBomb) + ` <br>(비만 경고! 건강 -15, 스트레스 -10 풀림✨)`; hpChange = -15; stressChange = -10; } 
-        else if (sweet === count) { dishName = "퍽퍽한 고구마 뭉치"; reaction = getRandomMsg(msgSweet) + ` <br>(건강 -5, 목막혀서 스트레스 +5💢)`; hpChange = -5; stressChange = 5; } 
-        else { dishName = "대충 쓰까먹는 밥"; reaction = getRandomMsg(msgNormal) + ` <br>(건강, 스트레스 변화 없음)`; hpChange = 0; stressChange = 0; }
+            let protein = counts["소고기"] + counts["돼지고기"] + counts["닭고기"] + counts["연어"];
+            let veggie = counts["브로콜리"] + counts["당근"]; let sweet = counts["고구마"];
+            let dishName = ""; let reaction = ""; let hpChange = 0; let stressChange = 0; 
 
-        if (counts["돼지고기"] > 0) { reaction += `<br><span style="color:#d32f2f; font-size:13px;">🚨 싼맛 돼지고기 탓에 배탈이 났다! (추가 건강 -10, 스트레스 +5)</span>`; hpChange -= 10; stressChange += 5; }
+            if (counts["소고기"] > 0 && counts["연어"] > 0 && veggie === 0) { dishName = "최고급 서프 앤 터프 특식"; reaction = getRandomMsg(msgSurfAndTurf) + ` <br>(건강 -5, 스트레스 -15 풀림✨)`; hpChange = -5; stressChange = -15; } 
+            else if (veggie > protein && veggie > 0) { dishName = "초록빛 풀때기 범벅"; reaction = getRandomMsg(msgVeggieFail) + ` <br>(스트레스! 건강 -5, 스트레스 +15😡)`; hpChange = -5; stressChange = 15; } 
+            else if (veggie > 0 && protein >= veggie) { dishName = "야채 쏙 숨긴 고기완자"; reaction = getRandomMsg(msgVeggieHidden) + ` <br>(균형 잡힌 식단! 건강 +10)`; hpChange = 10; stressChange = 0; } 
+            else if (protein === count) { dishName = "단백질 폭탄 파티"; reaction = getRandomMsg(msgMeatBomb) + ` <br>(비만 경고! 건강 -15, 스트레스 -10 풀림✨)`; hpChange = -15; stressChange = -10; } 
+            else if (sweet === count) { dishName = "퍽퍽한 고구마 뭉치"; reaction = getRandomMsg(msgSweet) + ` <br>(건강 -5, 목막혀서 스트레스 +5💢)`; hpChange = -5; stressChange = 5; } 
+            else { dishName = "대충 쓰까먹는 밥"; reaction = getRandomMsg(msgNormal) + ` <br>(건강, 스트레스 변화 없음)`; hpChange = 0; stressChange = 0; }
 
-        updateStats(hpChange, stressChange);
-        document.getElementById('result-msg').innerHTML = `<span style="color:#e64a19; font-size:16px;">[ ${dishName} ]</span> 완성!<br>${reaction}`;
+            if (counts["돼지고기"] > 0) { reaction += `<br><span style="color:#d32f2f; font-size:13px;">🚨 싼맛 돼지고기 탓에 배탈이 났다! (추가 건강 -10, 스트레스 +5)</span>`; hpChange -= 10; stressChange += 5; }
 
-        selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
-        bongbongData.inventory = myItems; localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
-        updateInventoryUI();
+            updateStats(hpChange, stressChange);
+            document.getElementById('result-msg').innerHTML = `<span style="color:#e64a19; font-size:16px;">[ ${dishName} ]</span> 완성!<br>${reaction}`;
+
+            selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
+            bongbongData.inventory = myItems; localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+            updateInventoryUI();
+        });
     }
 
+    // === 이하 시장 지붕 타기 미니게임 로직 (그대로 유지) ===
     let pX = 0, pY = 250, vX = 0, vY = 0, gravity = 0.8, jumpPower = -13.5, keys = {};
     let collectedThisRun = 0, platforms = [], gameItems = [], timeLeft = 30, gameInterval, timerInterval;
     let boardW = 440; const boardH = 400; const catchBoard = document.getElementById('catch-board');
