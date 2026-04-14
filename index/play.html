@@ -17,6 +17,7 @@
         .stat-box { font-size: 15px; font-weight: bold; color: #e65100; }
         
         #game-board-container { width: 100%; position: relative; padding: 10px; box-sizing: border-box; }
+        /* touch-action: none 으로 캔버스 드래그 시 화면 스크롤 방지 */
         canvas { background: #fffde7; border: 3px solid #ffb74d; border-radius: 10px; display: block; width: 100%; max-width: 400px; aspect-ratio: 3 / 4; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); margin: 0 auto; touch-action: none; cursor: crosshair;}
         
         .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: auto;}
@@ -45,8 +46,8 @@
         <h3>🎁 오늘 구할 장난감을 고르세요!</h3>
         <div class="guide-text">
             🎮 <b>장난감 합치기 룰!</b><br>
-            위에서 떨어뜨려 똑같은 모양끼리 부딪히게 하세요.<br>
-            (개껌 ➡️ 공 ➡️ 밧줄 ➡️ 원반 ➡️ 곰인형 ➡️ <b>목표!</b>)<br>
+            드래그하여 조준하고 <b>손을 떼면</b> 떨어집니다!<br>
+            (개껌 ➡️ 야구공 ➡️ 농구공 ➡️ 배구공 ➡️ 축구공 ➡️ 원반 ➡️ 곰인형 ➡️ <b>목표!</b>)<br>
             (※ 상자 밖으로 넘치면 실패 🚨)
         </div>
         <div id="toy-list"></div>
@@ -83,14 +84,16 @@
     document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     document.getElementById('hp-text').innerText = bongbongData.health;
     
-    // 🔥 강아지가 좋아하는 진짜 장난감들로 진화 트리 변경!
+    // 🔥 진화 7단계 세분화 (0~6단계)
     const EVOLUTION_STAGES = [
-        { level: 0, emoji: "🦴", size: 15, name: "작은 개껌", color: "#efebe9" },
-        { level: 1, emoji: "🎾", size: 22, name: "테니스공", color: "#ccff90" },
-        { level: 2, emoji: "🪢", size: 32, name: "터그 밧줄", color: "#d7ccc8" },
-        { level: 3, emoji: "🥏", size: 45, name: "날쌘 원반", color: "#b3e5fc" },
-        { level: 4, emoji: "🧸", size: 60, name: "애착 곰인형", color: "#dcedc8" },
-        // 5단계는 유저가 선택한 최종 장난감이 됨
+        { level: 0, emoji: "🦴", size: 15, name: "개껌", color: "#efebe9" },
+        { level: 1, emoji: "⚾", size: 22, name: "야구공", color: "#ffffff" },
+        { level: 2, emoji: "🏀", size: 28, name: "농구공", color: "#ffcc80" },
+        { level: 3, emoji: "🏐", size: 35, name: "배구공", color: "#fff9c4" },
+        { level: 4, emoji: "⚽", size: 42, name: "축구공", color: "#eeeeee" },
+        { level: 5, emoji: "🥏", size: 50, name: "원반", color: "#b3e5fc" },
+        { level: 6, emoji: "🧸", size: 60, name: "곰인형", color: "#dcedc8" },
+        // 7단계는 유저가 선택한 최종 장난감!
     ];
 
     const TOYS = [
@@ -127,19 +130,25 @@
     let bodiesMap = {}; 
     let canvas, ctx;
 
+    // 조준(미리보기)용 변수
+    let activeX = 150; 
+    let isDragging = false;
+
     function startToyGame(selectedToy) {
         currentToy = selectedToy;
         document.getElementById('selection-screen').style.display = 'none';
         document.getElementById('game-ui').style.display = 'flex';
         document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
         
-        EVOLUTION_STAGES[5] = { level: 5, emoji: currentToy.emoji, size: currentToy.finalSize, name: currentToy.name, color: currentToy.color };
+        // 7단계에 최종 목표 장난감 세팅
+        EVOLUTION_STAGES[7] = { level: 7, emoji: currentToy.emoji, size: currentToy.finalSize, name: currentToy.name, color: currentToy.color };
         
         initPhysics();
     }
 
     function getNextItem() {
-        return Math.floor(Math.random() * 3); // 0~2단계 랜덤 등장
+        // 초반에는 개껌(0), 야구공(1), 농구공(2) 중에서 랜덤으로 나옵니다.
+        return Math.floor(Math.random() * 3); 
     }
 
     function initPhysics() {
@@ -147,6 +156,7 @@
         ctx = canvas.getContext('2d');
         const width = 300;
         const height = 400;
+        activeX = width / 2; // 조준선 초기 중앙 정렬
 
         engine = Matter.Engine.create();
         world = engine.world;
@@ -171,7 +181,8 @@
                 const dataA = bodiesMap[bodyA.id];
                 const dataB = bodiesMap[bodyB.id];
 
-                if (dataA && dataB && dataA.level === dataB.level && dataA.level < 5 && !dataA.merging && !dataB.merging) {
+                // 같은 레벨이고 합쳐지는 중이 아니며, 최종 레벨(7) 미만일 때 합체!
+                if (dataA && dataB && dataA.level === dataB.level && dataA.level < 7 && !dataA.merging && !dataB.merging) {
                     dataA.merging = true;
                     dataB.merging = true;
 
@@ -189,7 +200,8 @@
                     
                     createNewBody(newX, newY, nextLevel, false);
 
-                    if (nextLevel === 5) {
+                    // 7단계(최종)를 만들면 승리!
+                    if (nextLevel === 7) {
                         gameActive = false;
                         handleVictory();
                     }
@@ -218,7 +230,10 @@
         nextItemLevel = getNextItem();
         updateNextUI();
 
-        canvas.addEventListener('pointerdown', handleInput);
+        // 💡 드래그 앤 드롭 이벤트 연결
+        canvas.addEventListener('pointerdown', handlePointerDown);
+        canvas.addEventListener('pointermove', handlePointerMove);
+        canvas.addEventListener('pointerup', handlePointerUp);
         
         requestAnimationFrame(drawGame);
     }
@@ -231,7 +246,7 @@
     function createNewBody(x, y, level, isCurrent) {
         const stageData = EVOLUTION_STAGES[level];
         const body = Matter.Bodies.circle(x, y, stageData.size, {
-            restitution: 0.3, 
+            restitution: 0.6, // 🔥 탄성(통통 튀는 정도)을 0.3에서 0.6으로 상향!
             friction: 0.1,    
             density: 0.05,
             isStatic: isCurrent 
@@ -250,19 +265,44 @@
         return body;
     }
 
-    function handleInput(e) {
-        if (!gameActive || isDropping) return;
-        
+    // 💡 마우스/터치 드래그 로직
+    function updateActiveX(e) {
         const rect = canvas.getBoundingClientRect();
-        let x = e.clientX || e.touches[0].clientX;
-        x = x - rect.left;
+        let x = e.clientX;
+        if (e.touches && e.touches.length > 0) {
+            x = e.touches[0].clientX;
+        }
+        if (x !== undefined) {
+            x = x - rect.left;
+            const stageData = EVOLUTION_STAGES[nextItemLevel];
+            // 양쪽 벽 밖으로 나가지 않게 X 좌표 제한
+            activeX = Math.max(stageData.size + 10, Math.min(x, canvas.width - stageData.size - 10));
+        }
+    }
 
-        const stageData = EVOLUTION_STAGES[nextItemLevel];
-        const limitX = Math.max(stageData.size + 10, Math.min(x, canvas.width - stageData.size - 10));
+    function handlePointerDown(e) {
+        if (!gameActive || isDropping) return;
+        isDragging = true;
+        updateActiveX(e);
+    }
 
+    function handlePointerMove(e) {
+        if (!gameActive || isDropping || !isDragging) return;
+        updateActiveX(e);
+    }
+
+    function handlePointerUp(e) {
+        if (!gameActive || isDropping || !isDragging) return;
+        isDragging = false;
+        updateActiveX(e);
+        dropItem();
+    }
+
+    function dropItem() {
         isDropping = true;
-        createNewBody(limitX, 30, nextItemLevel, false);
+        createNewBody(activeX, 30, nextItemLevel, false);
         
+        // 떨어지고 나서 다음 아이템을 준비하기까지의 딜레이
         setTimeout(() => {
             if(gameActive) {
                 nextItemLevel = getNextItem();
@@ -275,6 +315,7 @@
     function drawGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // 상단 데드라인 (빨간 점선)
         ctx.beginPath();
         ctx.moveTo(0, 50);
         ctx.lineTo(canvas.width, 50);
@@ -284,8 +325,39 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // 💡 대기 중인 아이템 미리보기 가이드 (반투명)
+        if (!isDropping && gameActive) {
+            const stageData = EVOLUTION_STAGES[nextItemLevel];
+            
+            // 반투명 원
+            ctx.beginPath();
+            ctx.arc(activeX, 30, stageData.size, 0, 2 * Math.PI);
+            ctx.fillStyle = stageData.color + "80"; // 투명도 추가
+            ctx.fill();
+
+            // 아래로 향하는 가이드 점선
+            ctx.beginPath();
+            ctx.moveTo(activeX, 30 + stageData.size);
+            ctx.lineTo(activeX, canvas.height);
+            ctx.strokeStyle = "rgba(0,0,0,0.15)";
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 반투명 이모지
+            ctx.save();
+            ctx.translate(activeX, 30);
+            ctx.font = `${stageData.size * 1.2}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.globalAlpha = 0.5;
+            ctx.fillText(stageData.emoji, 0, 0);
+            ctx.restore();
+        }
+
+        // 바닥에 쌓인 물리 엔진 물체들 그리기
         const bodies = Matter.Composite.allBodies(world);
-        
         for (let i = 0; i < bodies.length; i++) {
             const body = bodies[i];
             const data = bodiesMap[body.id];
