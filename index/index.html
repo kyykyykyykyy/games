@@ -87,13 +87,12 @@
     </div>
 </div>
 
-<div id="greet-modal">
-    <div class="modal-content">
+<div id="greet-modal" style="display: none;"> <div class="modal-content">
         <h3>💬 봉봉이에게 뭐라고 할까?</h3>
-        <button class="greet-btn" onclick="sendGreeting(1)">"우리 위대한 봉봉님, 잘 주무셨습니까?"</button>
-        <button class="greet-btn" onclick="sendGreeting(2)">"야, 오늘 좀 뽀송하고 귀엽다?"</button>
-        <button class="greet-btn" onclick="sendGreeting(3)">"밥이나 축내는 똥강아지야~"</button>
-        <button class="greet-btn" onclick="sendGreeting(4)">"오늘따라 꼬질꼬질 못생겼네."</button>
+        <button class="greet-btn" id="greet-btn-1"></button>
+        <button class="greet-btn" id="greet-btn-2"></button>
+        <button class="greet-btn" id="greet-btn-3"></button>
+        <button class="greet-btn" id="greet-btn-4"></button>
         <button class="close-btn" onclick="closeGreeting()">닫기</button>
     </div>
 </div>
@@ -190,28 +189,86 @@
         }
     }
 
+    // 💡 봉봉이의 다채로운 25가지 인사 반응 풀
+    const greetingPool = [
+        { text: "봉봉아 안녕! 쓰담쓰담 👋", reply: "어, 왔냐 닝겐. 손길이 제법 훌륭하구나 멍.", stress: -10 },
+        { text: "우리 강아지 밥은 먹었어? 🍖", reply: "말만 하지 말고 당장 간식 창고나 열어라 멍!", stress: -5 },
+        { text: "오늘따라 베이지색 털이 윤기가 좔좔 흐르네? 🪮", reply: "훗, 내가 봐도 완벽한 미모다 멍. 닝겐 눈은 정확하군.", stress: -15 },
+        { text: "봉봉아 사랑해~ 냅다 뽀뽀하기! 😘", reply: "으악! 내 얼굴에 닝겐 침 묻히지 마라!! 기겁!! 💦", stress: 20 },
+        { text: "장난감 흔들기 (딸랑딸랑) 🎾", reply: "오옷! 그거 내 거다멍! 빨리 던져라 멍!! ✨", stress: -15 },
+        { text: "아무 말 없이 그윽하게 쳐다보기 👀", reply: "뭘 봐? 반찬 투정할 거면 저리 가라 멍.", stress: 5 },
+        { text: "코 콕! (보핑하기) 👆", reply: "앗 차가워! 내 촉촉한 코를 함부로 건드리다니! 😠", stress: 10 },
+        { text: "봉봉아 엎드려! 손! 훈련시키기 ✋", reply: "내가 네 장난감이냐? 간식 없으면 절대 안 움직인다 멍. 🙄", stress: 10 },
+        { text: "배 긁어주기 (문질문질) 👐", reply: "크으... 거기가 딱이다 닝겐... 조금 더 밑으로... 🤤", stress: -15 },
+        { text: "자는데 몰래 발바닥 젤리 만지기 🐾", reply: "으응... 먹는 거 아니다 멍... (잠꼬대 중)", stress: -5 },
+        { text: "간식 봉지 부스럭거리는 소리 내기 🥠", reply: "!!! (자다가도 벌떡) 당장 내놔라 닝겐!!", stress: -15 },
+        { text: "얼굴에 바람 후~ 불기 🌬️", reply: "아악! 눈 맵다! 뭐하는 지거리야 닝겐!! 캭!", stress: 15 },
+        { text: "봉봉이 전용 자장가(아무말) 불러주기 🎶", reply: "귀 썩겠다 멍... 당장 그 입 다물라 멍.", stress: 10 },
+        { text: "궁디 팡팡 쳐주기 🍑", reply: "오... 리듬감이 제법인데? 계속 쳐봐라 닝겐.", stress: -10 },
+        { text: "새로 산 주황색 야구 유니폼 보여주기 ⚾", reply: "또 혼자 응원 가냐 멍? 나 두고 가면 집안 다 어지를 거다 멍! ⚾", stress: 5 },
+        { text: "봉봉이 펄럭이는 귀 팔랑팔랑 만지기 🐶", reply: "내 소중한 귀 건드리지 마라 멍! 바람 들어간다 멍!", stress: 5 },
+        { text: "갑자기 우다다다 뛰면서 술래잡기 유도하기 🏃‍♂️", reply: "오! 나랑 스피드로 붙어보겠다는 거냐 멍?! (신나서 쫓아옴)", stress: -15 },
+        { text: "모르는 척 봉봉이 깔고 앉는 시늉하기 🛋️", reply: "야야야!! 나 여기 있다 멍!! 깔려 죽는다 멍!! 😱", stress: 20 },
+        { text: "봉봉이 이름 10번 연속으로 부르기 🗣️", reply: "왜! 왜! 뭐! 간식 줄 거 아니면 그만 좀 불러라 멍!!", stress: 10 },
+        { text: "양말 뺏어가는 봉봉이와 터그놀이 🧦", reply: "크르르... 이 양말은 이제 내 거다 멍! 절대 안 뺏긴다 멍!", stress: -10 },
+        { text: "주인 쓰러진 척 명연기 펼치기 😵", reply: "...(냄새 킁킁)... 숨 쉬는 거 다 안다 멍. 빨리 일어나서 밥이나 줘라.", stress: 5 },
+        { text: "봉봉이 안고 둥가둥가 춤추기 💃", reply: "어지럽다 멍!! 멀미 난다!! 당장 나를 바닥에 내려놔라 닝겐!!", stress: 15 },
+        { text: "턱 밑 살살 긁어주기 😌", reply: "으음... 그래 거기... 극락이다 멍... 나른해진다 멍...", stress: -15 },
+        { text: "카메라 들이대며 억지로 셀카 찍기 📸", reply: "초상권 침해다 멍! 모델료로 개껌 3개 내놔라 멍! 📷", stress: 10 },
+        { text: "봉봉이에게 오늘의 운세 물어보기 🔮", reply: "오늘 너의 운세는 '나에게 소고기를 바치면 대길'이다 멍.", stress: -5 }
+    ];
+
+    // 기존의 모달 여는 함수 이름이 다르다면 이 이름으로 맞춰주세요!
     function openGreeting() {
-        if (bongbong.greetLastPlayed === getToday()) alert("봉봉이: \"어허, 닝겐. 오늘 인사는 아까 받았으니 그만 귀찮게 하고 육포나 대령해라 멍.\" 😒");
-        else document.getElementById('greet-modal').style.display = 'flex';
+        const today = new Date().toISOString().split('T')[0];
+        if (bongbongData.greetLastPlayed === today) {
+            alert("봉봉이: \"하루에 몇 번을 들이대는 거냐 멍! 피곤하다 저리 가라!\"");
+            return;
+        }
+
+        // 25개 중 4개를 랜덤으로 뽑기
+        const shuffled = [...greetingPool].sort(() => 0.5 - Math.random());
+        const selectedOptions = shuffled.slice(0, 4);
+
+        // 버튼 4개에 뽑힌 텍스트와 클릭 이벤트 세팅
+        for(let i = 0; i < 4; i++) {
+            const btn = document.getElementById(`greet-btn-${i+1}`);
+            if (btn) {
+                btn.innerText = selectedOptions[i].text;
+                btn.onclick = function() { submitGreeting(selectedOptions[i]); };
+            }
+        }
+        
+        document.getElementById('greet-modal').style.display = 'block';
     }
 
-    function closeGreeting() { document.getElementById('greet-modal').style.display = 'none'; }
+    function closeGreeting() {
+        document.getElementById('greet-modal').style.display = 'none';
+    }
 
-    function sendGreeting(option) {
-        closeGreeting();
-        let reaction = ""; let stressChange = 0;
-
-        if (option === 1) { reaction = "봉봉이: \"오냐 닝겐. 제법 예의를 갖췄구나. 오늘의 배 긁기를 특별히 허락하마.\" 👑\n(스트레스 -10)"; stressChange = -10; } 
-        else if (option === 2) { reaction = "봉봉이: \"뭐래. 내 미모는 365일 성수기다. 눈 깔고 간식이나 바쳐라.\" ✨\n(스트레스 -5)"; stressChange = -5; } 
-        else if (option === 3) { reaction = "봉봉이: \"내가 니 놀아주는 거다 멍청아! 나 없으면 폰만 볼 거면서 입을 확! 앙!\" 🐶💢\n(스트레스 +5)"; stressChange = 5; } 
-        else if (option === 4) { reaction = "봉봉이: \"니 얼굴이 더 심각하다멍! 거울이나 보고 와서 내 털빨을 논해라 칵씨!\" 🐾🔥\n(극대노! 스트레스 +10)"; stressChange = 10; }
-
-        bongbong.stress += stressChange;
-        let maxStress = 100 - (bongbong.collectedToys.length * 10);
-        if (bongbong.stress < 0) bongbong.stress = 0; if (bongbong.stress > maxStress) bongbong.stress = maxStress;
+    function submitGreeting(option) {
+        document.getElementById('greet-modal').style.display = 'none';
         
-        bongbong.greetLastPlayed = getToday(); saveGame();
-        setTimeout(() => { alert(reaction); updateUI(); checkEnding(); }, 100);
+        alert(`봉봉이: ${option.reply}\n\n(스트레스 ${option.stress > 0 ? '+' : ''}${option.stress})`);
+
+        // 스탯 업데이트
+        bongbongData.stress += option.stress;
+        let maxStress = 100 - ((bongbongData.collectedToys || []).length * 10);
+        
+        if(bongbongData.stress > maxStress) bongbongData.stress = maxStress;
+        if(bongbongData.stress < 0) bongbongData.stress = 0;
+        
+        bongbongData.greetLastPlayed = new Date().toISOString().split('T')[0];
+        localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+
+        // 화면 상단 스탯 텍스트 갱신 (index.html 내의 함수 이름에 맞게 수정 필요 시 수정)
+        document.getElementById('stress-text').innerText = bongbongData.stress;
+        
+        // 가출 체크 로직이 있다면 여기서 실행
+        if(bongbongData.stress >= maxStress) {
+            alert("봉봉이가 스트레스를 견디지 못하고 짐을 싸서 가출했습니다! 😭");
+            // 가출 엔딩 로직...
+        }
     }
 
     function checkEnding() {
