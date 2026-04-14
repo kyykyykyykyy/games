@@ -17,7 +17,6 @@
         .stat-box { font-size: 15px; font-weight: bold; color: #e65100; }
         
         #game-board-container { width: 100%; position: relative; padding: 10px; box-sizing: border-box; }
-        /* touch-action: none 으로 캔버스 드래그 시 화면 스크롤 방지 */
         canvas { background: #fffde7; border: 3px solid #ffb74d; border-radius: 10px; display: block; width: 100%; max-width: 400px; aspect-ratio: 3 / 4; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); margin: 0 auto; touch-action: none; cursor: crosshair;}
         
         .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: auto;}
@@ -84,7 +83,6 @@
     document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     document.getElementById('hp-text').innerText = bongbongData.health;
     
-    // 🔥 진화 7단계 세분화 (0~6단계)
     const EVOLUTION_STAGES = [
         { level: 0, emoji: "🦴", size: 15, name: "개껌", color: "#efebe9" },
         { level: 1, emoji: "⚾", size: 22, name: "야구공", color: "#ffffff" },
@@ -93,7 +91,6 @@
         { level: 4, emoji: "⚽", size: 42, name: "축구공", color: "#eeeeee" },
         { level: 5, emoji: "🥏", size: 50, name: "원반", color: "#b3e5fc" },
         { level: 6, emoji: "🧸", size: 60, name: "곰인형", color: "#dcedc8" },
-        // 7단계는 유저가 선택한 최종 장난감!
     ];
 
     const TOYS = [
@@ -130,7 +127,6 @@
     let bodiesMap = {}; 
     let canvas, ctx;
 
-    // 조준(미리보기)용 변수
     let activeX = 150; 
     let isDragging = false;
 
@@ -140,14 +136,12 @@
         document.getElementById('game-ui').style.display = 'flex';
         document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
         
-        // 7단계에 최종 목표 장난감 세팅
         EVOLUTION_STAGES[7] = { level: 7, emoji: currentToy.emoji, size: currentToy.finalSize, name: currentToy.name, color: currentToy.color };
         
         initPhysics();
     }
 
     function getNextItem() {
-        // 초반에는 개껌(0), 야구공(1), 농구공(2) 중에서 랜덤으로 나옵니다.
         return Math.floor(Math.random() * 3); 
     }
 
@@ -156,14 +150,14 @@
         ctx = canvas.getContext('2d');
         const width = 300;
         const height = 400;
-        activeX = width / 2; // 조준선 초기 중앙 정렬
+        activeX = width / 2; 
 
         engine = Matter.Engine.create();
         world = engine.world;
         
-        Matter.Events.on(engine, 'afterUpdate', drawGame);
+        // 🚨 이전에 있던 Matter.Events.on(engine, 'afterUpdate', drawGame) 코드를 삭제했습니다! (과부하의 원인)
 
-        const wallOptions = { isStatic: true, render: { visible: false } };
+        const wallOptions = { isStatic: true, render: { visible: false }, friction: 0 };
         Matter.World.add(world, [
             Matter.Bodies.rectangle(width / 2, height + 25, width, 50, wallOptions), 
             Matter.Bodies.rectangle(-25, height / 2, 50, height * 2, wallOptions), 
@@ -181,7 +175,6 @@
                 const dataA = bodiesMap[bodyA.id];
                 const dataB = bodiesMap[bodyB.id];
 
-                // 같은 레벨이고 합쳐지는 중이 아니며, 최종 레벨(7) 미만일 때 합체!
                 if (dataA && dataB && dataA.level === dataB.level && dataA.level < 7 && !dataA.merging && !dataB.merging) {
                     dataA.merging = true;
                     dataB.merging = true;
@@ -200,7 +193,6 @@
                     
                     createNewBody(newX, newY, nextLevel, false);
 
-                    // 7단계(최종)를 만들면 승리!
                     if (nextLevel === 7) {
                         gameActive = false;
                         handleVictory();
@@ -209,12 +201,17 @@
             }
         });
 
-        Matter.Events.on(engine, 'afterUpdate', function() {
+        // 물리 엔진 자체 업데이트루프
+        runner = Matter.Runner.create();
+        Matter.Runner.run(runner, engine);
+
+        // 게임 오버 체크를 별도의 루프로 분리하여 최적화
+        setInterval(() => {
             if(!gameActive) return;
             const bodies = Matter.Composite.allBodies(world);
             for (let i = 0; i < bodies.length; i++) {
                 const b = bodies[i];
-                if (!b.isStatic && b.velocity.y < 0.1 && b.velocity.y > -0.1) { 
+                if (!b.isStatic && Math.abs(b.velocity.y) < 0.2 && Math.abs(b.velocity.x) < 0.2) { 
                     if (b.position.y < 50 && bodiesMap[b.id] && !bodiesMap[b.id].isCurrent) { 
                         gameActive = false;
                         handleDefeat();
@@ -222,19 +219,16 @@
                     }
                 }
             }
-        });
-
-        runner = Matter.Runner.create();
-        Matter.Runner.run(runner, engine);
+        }, 500);
 
         nextItemLevel = getNextItem();
         updateNextUI();
 
-        // 💡 드래그 앤 드롭 이벤트 연결
         canvas.addEventListener('pointerdown', handlePointerDown);
         canvas.addEventListener('pointermove', handlePointerMove);
         canvas.addEventListener('pointerup', handlePointerUp);
         
+        // 정상적인 렌더링 시작
         requestAnimationFrame(drawGame);
     }
 
@@ -246,7 +240,7 @@
     function createNewBody(x, y, level, isCurrent) {
         const stageData = EVOLUTION_STAGES[level];
         const body = Matter.Bodies.circle(x, y, stageData.size, {
-            restitution: 0.6, // 🔥 탄성(통통 튀는 정도)을 0.3에서 0.6으로 상향!
+            restitution: 0.6, 
             friction: 0.1,    
             density: 0.05,
             isStatic: isCurrent 
@@ -265,17 +259,14 @@
         return body;
     }
 
-    // 💡 마우스/터치 드래그 로직
     function updateActiveX(e) {
         const rect = canvas.getBoundingClientRect();
         let x = e.clientX;
-        if (e.touches && e.touches.length > 0) {
-            x = e.touches[0].clientX;
-        }
+        if (e.touches && e.touches.length > 0) x = e.touches[0].clientX;
+        
         if (x !== undefined) {
             x = x - rect.left;
             const stageData = EVOLUTION_STAGES[nextItemLevel];
-            // 양쪽 벽 밖으로 나가지 않게 X 좌표 제한
             activeX = Math.max(stageData.size + 10, Math.min(x, canvas.width - stageData.size - 10));
         }
     }
@@ -302,7 +293,6 @@
         isDropping = true;
         createNewBody(activeX, 30, nextItemLevel, false);
         
-        // 떨어지고 나서 다음 아이템을 준비하기까지의 딜레이
         setTimeout(() => {
             if(gameActive) {
                 nextItemLevel = getNextItem();
@@ -313,9 +303,10 @@
     }
 
     function drawGame() {
+        if (!gameActive) return; // 게임이 끝나면 더 이상 화면을 그리지 않음 (최적화)
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 상단 데드라인 (빨간 점선)
         ctx.beginPath();
         ctx.moveTo(0, 50);
         ctx.lineTo(canvas.width, 50);
@@ -325,17 +316,14 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // 💡 대기 중인 아이템 미리보기 가이드 (반투명)
         if (!isDropping && gameActive) {
             const stageData = EVOLUTION_STAGES[nextItemLevel];
             
-            // 반투명 원
             ctx.beginPath();
             ctx.arc(activeX, 30, stageData.size, 0, 2 * Math.PI);
-            ctx.fillStyle = stageData.color + "80"; // 투명도 추가
+            ctx.fillStyle = stageData.color + "80"; 
             ctx.fill();
 
-            // 아래로 향하는 가이드 점선
             ctx.beginPath();
             ctx.moveTo(activeX, 30 + stageData.size);
             ctx.lineTo(activeX, canvas.height);
@@ -345,7 +333,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // 반투명 이모지
             ctx.save();
             ctx.translate(activeX, 30);
             ctx.font = `${stageData.size * 1.2}px Arial`;
@@ -356,7 +343,6 @@
             ctx.restore();
         }
 
-        // 바닥에 쌓인 물리 엔진 물체들 그리기
         const bodies = Matter.Composite.allBodies(world);
         for (let i = 0; i < bodies.length; i++) {
             const body = bodies[i];
@@ -382,11 +368,10 @@
             }
         }
         
-        if(gameActive) requestAnimationFrame(drawGame);
+        requestAnimationFrame(drawGame);
     }
 
     function handleVictory() {
-        Matter.Runner.stop(runner);
         setTimeout(() => {
             const toyQuotes = [
                 `"훗, 이 ${currentToy.name}? 꽤 크게 잘 만들었네. 보물창고에 넣어둬."`,
@@ -411,11 +396,10 @@
     }
 
     function handleDefeat() {
-        Matter.Runner.stop(runner);
         setTimeout(() => {
             const failToyQuotes = [
                 "\"장난감이 밖으로 다 튀어나오잖아! 진짜 밥값 못하는 닝겐이네.\"",
-                "\"곰인형 하나 못 만들어서 쌓기만 해? 저리 비켜라, 내가 하리?\"",
+                "\"장난감 하나 못 만들어서 쌓기만 해? 저리 비켜라, 내가 하리?\"",
                 "\"어휴, 저 한심한 손가락 좀 봐. 내일은 좀 제대로 해봐라 멍!\""
             ];
             const randomToyFailQuote = failToyQuotes[Math.floor(Math.random() * failToyQuotes.length)];
