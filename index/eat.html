@@ -9,13 +9,16 @@
         .game-container { width: 100%; max-width: 480px; box-sizing: border-box; background: rgba(255, 255, 255, 0.95); border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); border: 4px solid #ffcc00; text-align: center; overflow: hidden; margin: 10px; }
         .header { background: #ffcc00; padding: 15px; margin: 0; color: #333; display: flex; justify-content: space-between; align-items: center;}
         .header h2 { margin: 0; font-size: 18px; letter-spacing: -0.5px; } 
-        .stats { display: flex; gap: 5px; }
+        .stats { display: flex; gap: 5px; flex-direction: column; align-items: flex-end;}
+        .stat-bars { display: flex; gap: 5px; }
         .health-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #d32f2f; }
         .stress-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #6c5ce7; }
+        #buff-status { font-size: 12px; font-weight: bold; color: #ff9800; background: #fff3e0; padding: 3px 8px; border-radius: 10px; border: 1px solid #ffcc80; display: none; }
+        
         .phase { padding: 15px; display: none; } .phase.active { display: block; }
         .bonbong-status { background: #ffe6e6; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-weight: bold; font-size: 14px; color: #b71c1c; border: 2px solid #ffcdd2;}
         .inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; min-height: 70px; }
-        .item { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 5px 10px; border: 2px solid #ccc; border-radius: 10px; background: #f9f9f9; transition: 0.2s; user-select: none; width: 45px;}
+        .item { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 5px 10px; border: 2px solid #ccc; border-radius: 10px; background: #f9f9f9; transition: 0.2s; user-select: none; width: 45px; position: relative;}
         .item .emoji { font-size: 26px; } .item .name { font-size: 11px; font-weight: bold; margin-top: 3px; color: #555; }
         .item.selected { background: #c8e6c9; border-color: #4caf50; transform: scale(1.1); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .cook-board { background: #fff3e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #ff9800; min-height: 120px; }
@@ -25,7 +28,6 @@
         
         #result-msg { margin-top: 15px; font-size: 14px; color: #333; font-weight: bold; line-height: 1.4; min-height: 80px; }
         
-        /* 💡 연출을 위한 애니메이션 CSS 추가 */
         @keyframes boiling { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-5px) rotate(-10deg); } 75% { transform: translateY(5px) rotate(10deg); } }
         @keyframes gacha { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-15px) scale(1.2); } }
         
@@ -51,8 +53,11 @@
     <div class="header">
         <h2>🐶 봉봉아 한 입만!</h2>
         <div class="stats">
-            <div class="stress-bar">⚡ 스트레스: <span id="stress-text">50</span></div>
-            <div class="health-bar">❤️ 건강: <span id="hp-text">50</span></div>
+            <div class="stat-bars">
+                <div class="stress-bar">⚡ 스트레스: <span id="stress-text">50</span></div>
+                <div class="health-bar">❤️ 건강: <span id="hp-text">50</span></div>
+            </div>
+            <div id="buff-status">✨ 오늘의 버프 없음</div>
         </div>
     </div>
     
@@ -61,14 +66,14 @@
         <button class="btn-maze" onclick="startCatchGame()">🛒 시장으로 재료 구하러 가기 (30초)</button>
         
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 15px; padding: 0 10px;">
-            <h3 style="font-size: 15px; margin: 0;">가방 속 재료 <span style="font-size:11px; color:#666;">(3개 선택 시 상점 이용 가능)</span></h3>
+            <h3 style="font-size: 15px; margin: 0;">가방 속 재료 <span style="font-size:11px; color:#666;">(영양제 등은 단독 터치 시 바로 사용!)</span></h3>
             <span style="font-size: 13px; font-weight: bold; color: #e64a19;"><span id="inven-count">0</span> / 20</span>
         </div>
         
         <div class="inventory" id="inventory-ui"></div>
 
         <div class="cook-board">
-            <p style="margin: 0 0 10px 0; font-size: 14px;">선택된 재료: <span id="selected-list">없음</span></p>
+            <p style="margin: 0 0 10px 0; font-size: 14px;">냄비에 담긴 재료: <span id="selected-list">없음</span></p>
             
             <div id="action-buttons" style="display: flex; gap: 5px; justify-content: center;">
                 <button id="btn-cook" onclick="cook()">🔥 요리하기 (2~5개)</button>
@@ -107,11 +112,18 @@
 </div>
 
 <script>
-    let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, feedLastPlayed: null, inventory: [], collectedToys: [] };
+    const todayDate = new Date().toISOString().split('T')[0];
+    
+    let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, feedLastPlayed: null, inventory: [], collectedToys: [], dailyBuff: null };
     let health = bongbongData.health;
     let stress = bongbongData.stress !== undefined ? bongbongData.stress : 50;
     let myItems = bongbongData.inventory || []; 
-    let isAnimating = false; // 💡 애니메이션 중 클릭 방지 플래그
+    let isAnimating = false;
+
+    // 💡 날짜가 지나면 버프 초기화
+    if (bongbongData.dailyBuff && bongbongData.dailyBuff.date !== todayDate) {
+        bongbongData.dailyBuff = null;
+    }
 
     document.getElementById('hp-text').innerText = health;
     document.getElementById('stress-text').innerText = stress;
@@ -120,13 +132,27 @@
     const itemEmojis = { "소고기": "🥩", "돼지고기": "🥓", "닭고기": "🍗", "고구마": "🍠", "브로콜리": "🥦", "당근": "🥕", "연어": "🐟", "포도": "🍇", "양파": "🧅", "초콜릿": "🍫" };
     const toxicItems = ["포도", "양파", "초콜릿"]; const allItemTypes = Object.keys(itemEmojis);
 
+    // 💡 특별 아이템 정의 (버프 타입 명시)
     const SPECIAL_ITEMS = {
-        "황금 뼈다귀": { emoji: "🦴", hp: 50, stress: -50, msg: "전설의 황금 뼈다귀! 봉봉이가 황홀경에 빠집니다." },
-        "무지개 사탕": { emoji: "🍭", hp: 0, stress: -100, msg: "스트레스가 싹! 봉봉이가 세상을 다 가진 기분입니다." },
-        "특효 영양제": { emoji: "💊", hp: 50, stress: 0, msg: "기운이 펄펄 난다멍! 건강이 크게 회복됩니다." },
-        "행운의 간식": { emoji: "🧧", hp: 20, stress: -20, msg: "시장의 고양이가 보답으로 준 맛있는 간식입니다." },
-        "흙묻은 장갑": { emoji: "🧤", hp: 0, stress: 10, msg: "퉤퉤! 흙냄새가 진동합니다. 봉봉이가 극대노했습니다!" }
+        "황금 뼈다귀": { emoji: "🦴", type: "buff_all", msg: "[오늘 하루 무적!] 건강 감소 방지 & 스트레스 증가 방지 ✨" },
+        "무지개 사탕": { emoji: "🍭", type: "buff_stress", msg: "[오늘 하루 기분 최고!] 스트레스 증가 방지 🌈" },
+        "특효 영양제": { emoji: "💊", type: "buff_hp", msg: "[오늘 하루 강철 체력!] 건강 감소 방지 💪" },
+        "행운의 간식": { emoji: "🧧", type: "instant", hp: 20, stress: -20, msg: "행운의 간식! 즉시 건강 +20, 스트레스 -20 회복 💖" },
+        "흙묻은 장갑": { emoji: "🧤", type: "trash", msg: "이딴 걸 왜 먹이냐멍!! 퉤퉤!!" } // 장갑은 버프나 즉시 사용 아님 (가챠 반품용)
     };
+
+    function updateBuffUI() {
+        const buffUI = document.getElementById('buff-status');
+        if (bongbongData.dailyBuff && bongbongData.dailyBuff.date === todayDate) {
+            buffUI.style.display = 'inline-block';
+            if (bongbongData.dailyBuff.type === 'buff_all') buffUI.innerHTML = '✨ 오늘 하루 무적 상태! (건강↓/스트레스↑ 면역)';
+            else if (bongbongData.dailyBuff.type === 'buff_stress') buffUI.innerHTML = '🌈 오늘 기분 최고조! (스트레스↑ 면역)';
+            else if (bongbongData.dailyBuff.type === 'buff_hp') buffUI.innerHTML = '💪 오늘 강철 체력! (건강↓ 면역)';
+        } else {
+            buffUI.style.display = 'none';
+        }
+    }
+    updateBuffUI();
 
     const msgVeggieFail = [ `"너나 쳐먹어라 멍! 밥상 엎기 전에 고기 가져와!!" 💥`, `"내가 토끼냐 멍? 벽지 다 물어뜯기 전에 고기 내놔!" 🐇❌` ];
     const msgVeggieHidden = [ `"아오, 풀때기 숨긴 거 보소. 억지로 먹어준다." 😒`, `"뭔가 아삭거리는 기분 나쁜 식감이 있지만... 참는다멍." 🥦🥩` ];
@@ -137,16 +163,32 @@
 
     function getRandomMsg(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+    // 💡 버프 효과가 적용된 스탯 업데이트 로직
     function updateStats(hpAmount, stressAmount) {
-        health += hpAmount; stress += stressAmount;
+        // 버프가 켜져 있는지 확인하고 페널티 무효화
+        if (bongbongData.dailyBuff && bongbongData.dailyBuff.date === todayDate) {
+            if ((bongbongData.dailyBuff.type === 'buff_all' || bongbongData.dailyBuff.type === 'buff_hp') && hpAmount < 0) {
+                hpAmount = 0; // 건강 감소 방어
+            }
+            if ((bongbongData.dailyBuff.type === 'buff_all' || bongbongData.dailyBuff.type === 'buff_stress') && stressAmount > 0) {
+                stressAmount = 0; // 스트레스 증가 방어
+            }
+        }
+
+        health += hpAmount; 
+        stress += stressAmount;
         let maxStress = 100 - ((bongbongData.collectedToys || []).length * 10);
 
         if (health > 100) health = 100;
         if (stress > maxStress) stress = maxStress; 
         if (stress < 0) stress = 0; 
 
-        document.getElementById('hp-text').innerText = health; document.getElementById('stress-text').innerText = stress;
-        bongbongData.health = health; bongbongData.stress = stress; bongbongData.feedLastPlayed = Date.now(); 
+        document.getElementById('hp-text').innerText = health; 
+        document.getElementById('stress-text').innerText = stress;
+        
+        bongbongData.health = health; 
+        bongbongData.stress = stress; 
+        bongbongData.feedLastPlayed = Date.now(); 
         localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
 
         if (health <= 10) { document.getElementById('gameover-reason').innerText = "건강 관리에 실패해서 봉봉이가 응급실에 실려갔습니다!"; switchPhase('hospital-phase'); }
@@ -164,11 +206,10 @@
     function goHome() { window.location.href = 'index.html'; }
     function switchPhase(phaseId) { document.querySelectorAll('.phase').forEach(el => el.classList.remove('active')); document.getElementById(phaseId).classList.add('active'); }
 
-    // 💡 애니메이션 재생 헬퍼 함수
     function playAnimation(emoji, text, animationCSS, duration, callback) {
         isAnimating = true;
         document.getElementById('action-buttons').style.display = 'none';
-        document.getElementById('result-msg').innerHTML = ''; // 기존 결과 지우기
+        document.getElementById('result-msg').innerHTML = ''; 
         
         const animArea = document.getElementById('animation-area');
         const animEmoji = document.getElementById('anim-emoji');
@@ -182,7 +223,7 @@
             animArea.style.display = 'none';
             document.getElementById('action-buttons').style.display = 'flex';
             isAnimating = false;
-            callback(); // 2초 뒤 결과 실행
+            callback();
         }, duration);
     }
 
@@ -202,9 +243,16 @@
         myItems.forEach((item, index) => {
             let div = document.createElement('div');
             div.className = 'item';
-            if (SPECIAL_ITEMS[item]) div.style.backgroundColor = "#f3e5f5"; 
             
-            div.innerHTML = `<div class="emoji">${itemEmojis[item] || (SPECIAL_ITEMS[item] ? SPECIAL_ITEMS[item].emoji : "❓")}</div><div class="name">${item}</div>`;
+            if (SPECIAL_ITEMS[item]) {
+                div.style.backgroundColor = "#f3e5f5"; 
+                // 단독 사용 아이템 표시 배지
+                if(SPECIAL_ITEMS[item].type !== 'trash') {
+                    div.innerHTML += `<div style="position:absolute; top:-5px; right:-5px; background:#e65100; color:white; font-size:9px; padding:2px 4px; border-radius:5px; font-weight:bold;">단독사용</div>`;
+                }
+            }
+            
+            div.innerHTML += `<div class="emoji">${itemEmojis[item] || (SPECIAL_ITEMS[item] ? SPECIAL_ITEMS[item].emoji : "❓")}</div><div class="name">${item}</div>`;
             div.onclick = function() { selectItem(this, item, index); };
             invenUI.appendChild(div);
         });
@@ -213,8 +261,17 @@
     updateInventoryUI();
 
     function selectItem(element, itemName, index) {
-        if(isAnimating) return; // 💡 애니메이션 중에는 재료 클릭 막기
+        if(isAnimating) return; 
 
+        // 💡 단독 사용 아이템 즉시 실행 로직
+        if (SPECIAL_ITEMS[itemName] && SPECIAL_ITEMS[itemName].type !== 'trash') {
+            if(confirm(`[ ${itemName} ]을(를) 지금 바로 사용하시겠습니까?\n(냄비에 넣지 않고 즉시 봉봉이에게 줍니다)`)) {
+                useSpecialItemImmediately(itemName, index);
+            }
+            return; // 냄비 선택 로직 건너뜐
+        }
+
+        // 일반 재료 또는 흙묻은 장갑(반품용) 선택 로직
         let existingIndex = selectedIngredients.findIndex(val => val.index === index);
         if (existingIndex > -1) { 
             selectedIngredients.splice(existingIndex, 1); 
@@ -232,12 +289,42 @@
         document.getElementById('btn-sell').style.display = (selectedIngredients.length === 3) ? 'block' : 'none';
     }
 
-    // 💡 고양이 상점 가챠 로직
+    // 💡 단독 아이템 사용 함수
+    function useSpecialItemImmediately(itemName, index) {
+        const item = SPECIAL_ITEMS[itemName];
+        
+        // 아이템 삭제
+        myItems.splice(index, 1);
+        
+        if (item.type.startsWith('buff')) {
+            // 버프 부여
+            bongbongData.dailyBuff = { type: item.type, date: todayDate };
+            // 버프 부여 시 스탯 즉시 만땅 채워주는 서비스 (황금뼈다귀 등)
+            if (item.type === 'buff_all') updateStats(100, -100);
+            if (item.type === 'buff_stress') updateStats(0, -100);
+            if (item.type === 'buff_hp') updateStats(100, 0);
+            
+            updateBuffUI();
+        } else if (item.type === 'instant') {
+            updateStats(item.hp, item.stress);
+        }
+
+        bongbongData.inventory = myItems;
+        localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+        updateInventoryUI();
+
+        document.getElementById('result-msg').innerHTML = `
+            <div style="background:#e8f5e9; padding:10px; border-radius:10px; border:2px solid #4caf50;">
+                <p style="margin:5px 0; font-size:16px; font-weight:bold; color:#2e7d32;">✨ [ ${itemName} ] 사용 완료! ✨</p>
+                <p style="margin:0; font-size:13px; color:#1b5e20;">${item.msg}</p>
+            </div>
+        `;
+    }
+
     function sellToCat() {
         if(isAnimating) return;
         if (selectedIngredients.length !== 3) return;
 
-        // 🐱 가챠 연출 실행! (2초)
         playAnimation("🐱🎁", "고양이가 주머니를 뒤적거리는 중...", "gacha 0.5s infinite", 2000, () => {
             const gloveCount = selectedIngredients.filter(item => item.name === "흙묻은 장갑").length;
             selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
@@ -276,7 +363,7 @@
                 <div style="background:#f3e5f5; padding:10px; border-radius:10px; border:2px solid #9c27b0;">
                     <p style="margin:0; font-size:13px; color:#7b1fa2;">${catMessage}</p>
                     <p style="margin:5px 0; font-size:16px; font-weight:bold;">✨ [ ${giftName} ] 획득! ✨</p>
-                    <p style="margin:0; font-size:12px; color:#666;">${gift.msg}</p>
+                    <p style="margin:0; font-size:12px; color:#666;">(가방에 쏙 들어갔습니다. 터치해서 바로 사용하세요!)</p>
                 </div>
             `;
 
@@ -287,43 +374,29 @@
         });
     }
 
-    // 💡 요리하기 로직
     function cook() {
         if(isAnimating) return;
         
-        // 맹독 체크는 애니메이션 전에 즉시 실행!
         let hasToxic = selectedIngredients.find(item => toxicItems.includes(item.name));
         if (hasToxic) { document.getElementById('gameover-reason').innerText = `미쳤습니까 휴먼?! 강아지에게 치명적인 맹독 [${hasToxic.name}]을(를) 먹였습니다!`; switchPhase('hospital-phase'); return; }
 
-        const hasSpecial = selectedIngredients.find(i => SPECIAL_ITEMS[i.name]);
-        if (hasSpecial && selectedIngredients.length > 1) {
-            alert("특별한 아이템은 섞어 쓰지 말고 단독(1개)으로 사용해 주세요!");
+        let count = selectedIngredients.length;
+        if (count < 2 || count > 5) { alert("요리하려면 재료를 2~5개 넣어주세요."); return; }
+        
+        // 만약 흙묻은 장갑을 냄비에 넣고 끓여버린다면?
+        let hasGlove = selectedIngredients.find(item => item.name === "흙묻은 장갑");
+        if (hasGlove) {
+            playAnimation("🤢", "장갑 끓는 냄새가 진동합니다...", "boiling 0.4s infinite", 1500, () => {
+                updateStats(-10, 20);
+                document.getElementById('result-msg').innerHTML = `<span style="color:#c62828; font-size:16px;">[ 흙탕물 잡탕 ]</span> 완성!<br>우웩! 봉봉이가 토를 했습니다! (건강 -10, 스트레스 +20) 😡`;
+                selectedIngredients.sort((a,b) => b.index - a.index).forEach(val => myItems.splice(val.index, 1));
+                bongbongData.inventory = myItems; localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+                updateInventoryUI();
+            });
             return;
         }
 
-        let count = selectedIngredients.length;
-        if (!hasSpecial && (count < 2 || count > 5)) { alert("요리하려면 재료를 2~5개 넣어주세요."); return; }
-
-        // 🍲 요리 연출 실행! (1.5초)
-        const animEmoji = hasSpecial ? "✨" : "🍲";
-        const animText = hasSpecial ? "특별한 아이템을 사용하는 중..." : "보글보글... 맛있는 요리가 완성되는 중!";
-        
-        playAnimation(animEmoji, animText, "boiling 0.4s infinite", 1500, () => {
-            
-            // 특별 아이템 사용 결과
-            if (hasSpecial) {
-                const item = SPECIAL_ITEMS[hasSpecial.name];
-                updateStats(item.hp, item.stress);
-                document.getElementById('result-msg').innerHTML = `<span style="color:#9c27b0;">[ ${hasSpecial.name} ]</span> 사용 완료!<br>${item.msg}`;
-                
-                selectedIngredients.forEach(val => myItems.splice(val.index, 1));
-                bongbongData.inventory = myItems;
-                localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
-                updateInventoryUI();
-                return;
-            }
-
-            // 일반 요리 결과
+        playAnimation("🍲", "보글보글... 맛있는 요리가 완성되는 중!", "boiling 0.4s infinite", 1500, () => {
             let counts = { "소고기": 0, "돼지고기": 0, "닭고기": 0, "고구마": 0, "브로콜리": 0, "당근": 0, "연어": 0 };
             selectedIngredients.forEach(item => { if(counts[item.name] !== undefined) counts[item.name]++; });
 
@@ -349,7 +422,7 @@
         });
     }
 
-    // === 이하 시장 지붕 타기 미니게임 로직 (그대로 유지) ===
+    // === 미니게임 로직은 그대로 유지 ===
     let pX = 0, pY = 250, vX = 0, vY = 0, gravity = 0.8, jumpPower = -13.5, keys = {};
     let collectedThisRun = 0, platforms = [], gameItems = [], timeLeft = 30, gameInterval, timerInterval;
     let boardW = 440; const boardH = 400; const catchBoard = document.getElementById('catch-board');
