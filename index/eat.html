@@ -120,7 +120,6 @@
     let myItems = bongbongData.inventory || []; 
     let isAnimating = false;
 
-    // 💡 날짜가 지나면 버프 초기화
     if (bongbongData.dailyBuff && bongbongData.dailyBuff.date !== todayDate) {
         bongbongData.dailyBuff = null;
     }
@@ -132,13 +131,12 @@
     const itemEmojis = { "소고기": "🥩", "돼지고기": "🥓", "닭고기": "🍗", "고구마": "🍠", "브로콜리": "🥦", "당근": "🥕", "연어": "🐟", "포도": "🍇", "양파": "🧅", "초콜릿": "🍫" };
     const toxicItems = ["포도", "양파", "초콜릿"]; const allItemTypes = Object.keys(itemEmojis);
 
-    // 💡 특별 아이템 정의 (버프 타입 명시)
     const SPECIAL_ITEMS = {
         "황금 뼈다귀": { emoji: "🦴", type: "buff_all", msg: "[오늘 하루 무적!] 건강 감소 방지 & 스트레스 증가 방지 ✨" },
         "무지개 사탕": { emoji: "🍭", type: "buff_stress", msg: "[오늘 하루 기분 최고!] 스트레스 증가 방지 🌈" },
         "특효 영양제": { emoji: "💊", type: "buff_hp", msg: "[오늘 하루 강철 체력!] 건강 감소 방지 💪" },
         "행운의 간식": { emoji: "🧧", type: "instant", hp: 20, stress: -20, msg: "행운의 간식! 즉시 건강 +20, 스트레스 -20 회복 💖" },
-        "흙묻은 장갑": { emoji: "🧤", type: "trash", msg: "이딴 걸 왜 먹이냐멍!! 퉤퉤!!" } // 장갑은 버프나 즉시 사용 아님 (가챠 반품용)
+        "흙묻은 장갑": { emoji: "🧤", type: "trash", msg: "이딴 걸 왜 먹이냐멍!! 퉤퉤!!" } 
     };
 
     function updateBuffUI() {
@@ -163,15 +161,13 @@
 
     function getRandomMsg(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-    // 💡 버프 효과가 적용된 스탯 업데이트 로직
     function updateStats(hpAmount, stressAmount) {
-        // 버프가 켜져 있는지 확인하고 페널티 무효화
         if (bongbongData.dailyBuff && bongbongData.dailyBuff.date === todayDate) {
             if ((bongbongData.dailyBuff.type === 'buff_all' || bongbongData.dailyBuff.type === 'buff_hp') && hpAmount < 0) {
-                hpAmount = 0; // 건강 감소 방어
+                hpAmount = 0; 
             }
             if ((bongbongData.dailyBuff.type === 'buff_all' || bongbongData.dailyBuff.type === 'buff_stress') && stressAmount > 0) {
-                stressAmount = 0; // 스트레스 증가 방어
+                stressAmount = 0; 
             }
         }
 
@@ -246,7 +242,6 @@
             
             if (SPECIAL_ITEMS[item]) {
                 div.style.backgroundColor = "#f3e5f5"; 
-                // 단독 사용 아이템 표시 배지
                 if(SPECIAL_ITEMS[item].type !== 'trash') {
                     div.innerHTML += `<div style="position:absolute; top:-5px; right:-5px; background:#e65100; color:white; font-size:9px; padding:2px 4px; border-radius:5px; font-weight:bold;">단독사용</div>`;
                 }
@@ -263,15 +258,13 @@
     function selectItem(element, itemName, index) {
         if(isAnimating) return; 
 
-        // 💡 단독 사용 아이템 즉시 실행 로직
         if (SPECIAL_ITEMS[itemName] && SPECIAL_ITEMS[itemName].type !== 'trash') {
             if(confirm(`[ ${itemName} ]을(를) 지금 바로 사용하시겠습니까?\n(냄비에 넣지 않고 즉시 봉봉이에게 줍니다)`)) {
                 useSpecialItemImmediately(itemName, index);
             }
-            return; // 냄비 선택 로직 건너뜐
+            return; 
         }
 
-        // 일반 재료 또는 흙묻은 장갑(반품용) 선택 로직
         let existingIndex = selectedIngredients.findIndex(val => val.index === index);
         if (existingIndex > -1) { 
             selectedIngredients.splice(existingIndex, 1); 
@@ -289,21 +282,15 @@
         document.getElementById('btn-sell').style.display = (selectedIngredients.length === 3) ? 'block' : 'none';
     }
 
-    // 💡 단독 아이템 사용 함수
     function useSpecialItemImmediately(itemName, index) {
         const item = SPECIAL_ITEMS[itemName];
-        
-        // 아이템 삭제
         myItems.splice(index, 1);
         
         if (item.type.startsWith('buff')) {
-            // 버프 부여
             bongbongData.dailyBuff = { type: item.type, date: todayDate };
-            // 버프 부여 시 스탯 즉시 만땅 채워주는 서비스 (황금뼈다귀 등)
             if (item.type === 'buff_all') updateStats(100, -100);
             if (item.type === 'buff_stress') updateStats(0, -100);
             if (item.type === 'buff_hp') updateStats(100, 0);
-            
             updateBuffUI();
         } else if (item.type === 'instant') {
             updateStats(item.hp, item.stress);
@@ -383,7 +370,6 @@
         let count = selectedIngredients.length;
         if (count < 2 || count > 5) { alert("요리하려면 재료를 2~5개 넣어주세요."); return; }
         
-        // 만약 흙묻은 장갑을 냄비에 넣고 끓여버린다면?
         let hasGlove = selectedIngredients.find(item => item.name === "흙묻은 장갑");
         if (hasGlove) {
             playAnimation("🤢", "장갑 끓는 냄새가 진동합니다...", "boiling 0.4s infinite", 1500, () => {
@@ -422,7 +408,7 @@
         });
     }
 
-    // === 미니게임 로직은 그대로 유지 ===
+    // 💡 미니게임 난이도 패치 (속도 증가, 발판 크기 증가, 세로 간격 감소)
     let pX = 0, pY = 250, vX = 0, vY = 0, gravity = 0.8, jumpPower = -13.5, keys = {};
     let collectedThisRun = 0, platforms = [], gameItems = [], timeLeft = 30, gameInterval, timerInterval;
     let boardW = 440; const boardH = 400; const catchBoard = document.getElementById('catch-board');
@@ -433,7 +419,9 @@
     document.addEventListener('keydown', e => { if(["ArrowLeft", "ArrowRight"].includes(e.key)) keys[e.key] = true; }); document.addEventListener('keyup', e => { if(["ArrowLeft", "ArrowRight"].includes(e.key)) keys[e.key] = false; });
 
     function spawnPlatform(y) {
-        let w = 70 + Math.random() * 50; let x = Math.random() * (boardW - w);
+        // 발판 가로 길이 증가 (최소 90 ~ 최대 140)
+        let w = 90 + Math.random() * 50; 
+        let x = Math.random() * (boardW - w);
         let platEl = document.createElement('div'); platEl.className = 'platform'; platEl.style.width = w + 'px'; platEl.style.height = '15px'; platEl.style.left = x + 'px'; platEl.style.top = y + 'px'; catchBoard.appendChild(platEl); platforms.push({ x: x, y: y, w: w, el: platEl });
         if (Math.random() < 0.7) { let type = allItemTypes[Math.floor(Math.random() * allItemTypes.length)]; let itemEl = document.createElement('div'); itemEl.className = 'falling-item'; itemEl.innerText = itemEmojis[type]; itemEl.style.left = (x + w/2 - 15) + 'px'; itemEl.style.top = (y - 30) + 'px'; catchBoard.appendChild(itemEl); gameItems.push({ type: type, x: x + w/2 - 15, y: y - 30, el: itemEl }); }
     }
@@ -443,7 +431,10 @@
         document.getElementById('collected-count').innerText = collectedThisRun; document.getElementById('time-left').innerText = timeLeft; document.getElementById('result-msg').innerHTML = ''; 
         catchBoard.innerHTML = `<div id="player" style="left: ${pX}px; top: ${pY}px;">🐕</div>`;
         let startPlat = document.createElement('div'); startPlat.className = 'platform'; startPlat.style.width = boardW + 'px'; startPlat.style.height = '20px'; startPlat.style.left = '0px'; startPlat.style.top = '330px'; catchBoard.appendChild(startPlat); platforms.push({ x: 0, y: 330, w: boardW, el: startPlat });
-        let currentY = 230; while(currentY > -100) { spawnPlatform(currentY); currentY -= (40 + Math.random() * 40); }
+        
+        // 발판 세로 간격 감소 (최소 35 ~ 최대 65)
+        let currentY = 230; while(currentY > -100) { spawnPlatform(currentY); currentY -= (35 + Math.random() * 30); }
+        
         timerInterval = setInterval(() => { timeLeft--; document.getElementById('time-left').innerText = timeLeft; if (timeLeft <= 0) endCatchGame("타임오버! 모은 장바구니를 무사히 들고 집에 갑니다. 🏃‍♂️💨", true); }, 1000);
         gameInterval = setInterval(updatePhysics, 20);
     }
@@ -460,7 +451,8 @@
 
     function updatePhysics() {
         const playerEl = document.getElementById('player');
-        if (keys["ArrowLeft"]) { vX = -7; playerEl.style.transform = 'scaleX(-1)'; } else if (keys["ArrowRight"]) { vX = 7; playerEl.style.transform = 'scaleX(1)'; } else vX = 0; 
+        // 봉봉이 좌우 이동 속도 증가 (7 -> 9)
+        if (keys["ArrowLeft"]) { vX = -9; playerEl.style.transform = 'scaleX(-1)'; } else if (keys["ArrowRight"]) { vX = 9; playerEl.style.transform = 'scaleX(1)'; } else vX = 0; 
         vY += gravity; 
         platforms.forEach(p => { if (vY > 0 && pY + 40 >= p.y && pY + 40 - vY <= p.y + 15) { if (pX + 25 > p.x && pX + 15 < p.x + p.w) { pY = p.y - 40; vY = jumpPower; } } });
         pX += vX; pY += vY; if (pX < 0) pX = 0; if (pX > boardW - 40) pX = boardW - 40;
@@ -469,7 +461,10 @@
         platforms.forEach(p => { p.el.style.left = p.x + 'px'; p.el.style.top = p.y + 'px'; }); gameItems.forEach(i => { i.el.style.left = i.x + 'px'; i.el.style.top = i.y + 'px'; });
         for (let i = gameItems.length - 1; i >= 0; i--) { let item = gameItems[i]; if (item.y + 30 > pY && item.y < pY + 40 && item.x + 30 > pX && item.x < pX + 40) { tempItemsThisRun.push(item.type); collectedThisRun++; document.getElementById('collected-count').innerText = collectedThisRun; item.el.remove(); gameItems.splice(i, 1); } }
         platforms = platforms.filter(p => { if (p.y > boardH) { p.el.remove(); return false; } return true; }); gameItems = gameItems.filter(i => { if (i.y > boardH) { i.el.remove(); return false; } return true; });
-        let minY = Math.min(...platforms.map(p => p.y)); if (minY > 50) spawnPlatform(minY - (40 + Math.random() * 40)); 
+        
+        // 새로운 발판 생성 시 세로 간격 감소 적용
+        let minY = Math.min(...platforms.map(p => p.y)); if (minY > 50) spawnPlatform(minY - (35 + Math.random() * 30)); 
+        
         if (pY > boardH) endCatchGame("앗! 발을 헛디뎠다! 모은 재료를 다 쏟고 쫓겨났습니다. 😭", false);
     }
 </script>
