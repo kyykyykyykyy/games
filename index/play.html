@@ -5,71 +5,169 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>봉봉이 장난감 구하기!</title>
     <style>
-        body { font-family: 'Malgun Gothic', 'Segoe UI Emoji', sans-serif; margin: 0; height: 100vh; background: linear-gradient(135deg, #fff3e0, #ffe0b2); display: flex; align-items: center; justify-content: center; overscroll-behavior-y: contain; touch-action: none; user-select: none; }
-        .game-container { width: 100%; max-width: 480px; box-sizing: border-box; background: rgba(255, 255, 255, 0.95); border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 4px solid #ffb74d; text-align: center; overflow: hidden; margin: 10px; display: flex; flex-direction: column; position: relative; }
-        .header { background: #ffb74d; padding: 15px; margin: 0; color: #5d4037; display: flex; justify-content: space-between; align-items: center;}
-        .header h2 { margin: 0; font-size: 18px; letter-spacing: -0.5px; } 
-        .stats { display: flex; gap: 5px; }
-        .health-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #d32f2f; }
-        .stress-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #6c5ce7; }
-        
-        #top-ui { display: flex; justify-content: space-around; align-items: center; background: #fff8e1; padding: 10px; border-bottom: 2px dashed #ffcc80; }
-        .stat-box { font-size: 15px; font-weight: bold; color: #e65100; }
-        
-        #game-board-container { width: 100%; position: relative; padding: 10px; box-sizing: border-box; }
-        canvas { background: #fffde7; border: 3px solid #ffb74d; border-radius: 10px; display: block; width: 100%; max-width: 400px; aspect-ratio: 3 / 4; box-shadow: inset 0 0 15px rgba(0,0,0,0.05); margin: 0 auto; touch-action: none; cursor: crosshair;}
-        
-        .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-top: auto;}
-        
-        #selection-screen { padding: 30px 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #selection-screen h3 { color: #e65100; font-size: 20px; margin-bottom: 10px; }
-        .guide-text { font-size: 13px; color: #d84315; margin-bottom: 15px; font-weight: bold; background: #ffecb3; padding: 10px; border-radius: 10px; text-align: left; line-height: 1.5; }
+        /* ===== 픽셀 폰트: Galmuri (SIL OFL) — 글자 일부만 담은 경량 버전 ===== */
+        @font-face { font-family: 'Pix'; src: url('Galmuri11-Bold-sub.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+
+        :root { --ink: #3b2418; --gold: #ffcc00; --paper: #fff6df; --theme: #ffcc00; --theme-bg: #f3d9a4; --theme-bg2: #ecc98a; }
+        * { box-sizing: border-box; }
+
+        body { font-family: 'Pix', 'Malgun Gothic', sans-serif; font-size: 13px; font-weight: 700; color: var(--ink); margin: 0; min-height: 100vh; padding: 10px; display: flex; align-items: center; justify-content: center; overscroll-behavior-y: contain; touch-action: none; user-select: none;
+               background-color: var(--theme-bg);
+               background-image: linear-gradient(45deg, var(--theme-bg2) 25%, transparent 25%, transparent 75%, var(--theme-bg2) 75%), linear-gradient(45deg, var(--theme-bg2) 25%, transparent 25%, transparent 75%, var(--theme-bg2) 75%);
+               background-size: 32px 32px; background-position: 0 0, 16px 16px; }
+
+        /* 도트 아이콘 (pix_icons.png) — --is: 16px 아이콘의 배율 */
+        .ic { display: inline-block; width: calc(16px * var(--is, 1)); height: calc(16px * var(--is, 1)); background: url('pix_icons.png') no-repeat; image-rendering: pixelated; vertical-align: -0.2em;
+              background-size: calc(128px * var(--is, 1)) calc(96px * var(--is, 1)); background-position: calc(var(--ix) * -16px * var(--is, 1)) calc(var(--iy) * -16px * var(--is, 1)); }
+
+        .game-container { width: 100%; max-width: 480px; background: var(--paper); border: 4px solid var(--ink); box-shadow: 0 0 0 4px var(--theme), 0 0 0 8px var(--ink), 10px 10px 0 8px rgba(59,36,24,0.25); text-align: center; overflow: hidden; margin: 8px; display: flex; flex-direction: column; position: relative; }
+        .header { background: var(--theme); padding: 12px; margin: 0; color: var(--ink); display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ink); }
+        .header h2 { margin: 0; font-size: 16px; letter-spacing: -0.5px; text-align: left; }
+        .stats { display: flex; gap: 4px; }
+        .health-bar, .stress-bar { font-size: 12px; font-weight: bold; background: #fff; padding: 4px 6px; border: 2px solid var(--ink); white-space: nowrap; }
+        .health-bar { color: #c62828; } .stress-bar { color: #5e35b1; }
+
+        button { font-family: inherit; color: #fff; border: 3px solid var(--ink); padding: 9px 12px; font-size: 14px; cursor: pointer; font-weight: bold; border-radius: 0; position: relative; top: 0;
+                 box-shadow: inset -3px -3px 0 rgba(0,0,0,0.25), inset 3px 3px 0 rgba(255,255,255,0.35), 0 4px 0 var(--ink); }
+        button:hover { filter: brightness(1.08); }
+        button:active { top: 4px; box-shadow: inset -3px -3px 0 rgba(0,0,0,0.25), inset 3px 3px 0 rgba(255,255,255,0.35), 0 0 0 var(--ink); }
+        .btn-home { background: #757575; margin: 10px 14px 14px; }
+        :root { --bg-a: #fff0c2; --theme: #ffbf55; --theme-bg: #ffe2ad; --theme-bg2: #f8d396; }
+        body { align-items: flex-start; }
+        .header { color: #5a3217; }
+        .header h2 { display: flex; align-items: center; gap: 6px; }
+        #top-ui { display: flex; justify-content: space-around; align-items: center; background: #fff1cf; padding: 8px 8px 8px 4px; border-bottom: 4px dashed #e2a64a; gap: 4px; }
+        #avatar { width: 76px; height: 70px; flex: none; }
+        .stat-box { font-size: 13px; color: #b3450f; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+        #game-board-container { width: 100%; padding: 10px; }
+        #board { position: relative; max-width: 400px; margin: 0 auto; border: 4px solid var(--ink); box-shadow: 4px 4px 0 rgba(59,36,24,.3); background: #fff1cf; aspect-ratio: 3/4; }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+        #fxlayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        #selection-screen { padding: 22px 14px 6px; display: flex; flex-direction: column; align-items: center; }
+        #selection-screen h3 { color: #b3450f; font-size: 16px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+        .guide-text { font-size: 12px; color: #8a3a12; margin-bottom: 14px; background: #ffe9b3; padding: 10px; border: 3px solid var(--ink); text-align: left; line-height: 1.9; width: 100%; }
         #toy-list { width: 100%; display: flex; flex-direction: column; align-items: center; }
-        .toy-btn { width: 90%; padding: 15px; margin: 8px 0; font-size: 16px; font-weight: bold; color: #333; border: 3px solid #ccc; border-radius: 15px; background: #fff; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .toy-btn:hover:not(.disabled) { transform: scale(1.05); }
-        .toy-btn.disabled { opacity: 0.4; background: #eee; cursor: not-allowed; text-decoration: line-through; border-color: #aaa;}
+        .toy-btn { width: 92%; padding: 10px 12px; margin: 7px 0; font-size: 14px; color: var(--ink); border: 4px solid var(--ink); background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+                   box-shadow: inset 0 0 0 4px var(--tc), 0 4px 0 var(--ink); position: relative; top: 0; }
+        .toy-btn:hover:not(.disabled) { filter: brightness(1.05); }
+        .toy-btn:active:not(.disabled) { top: 4px; box-shadow: inset 0 0 0 4px var(--tc), 0 0 0 var(--ink); }
+        .toy-btn.disabled { opacity: .45; background: #e6dcc8; cursor: not-allowed; text-decoration: line-through; }
+        .btn-home { width: calc(100% - 28px); }
+        .guide-text .ic { margin: 0 1px; }
+        /* ===== 말랑 도트 테마: 연한 외곽선 · 둥근 모서리 · 파스텔 ===== */
+        :root { --ink: #b07c5f; --text: #6a4033; --paper: #fffaf0; }
+        body { color: var(--text); }
+        .header, .header h2, .toy-btn, .btn, .item, .stat-box, .guide-text, .status-text { color: var(--text); }
+        .game-container { border-radius: 22px; border-width: 3px !important; box-shadow: 0 0 0 5px var(--theme, var(--gold)), 0 0 0 8px var(--ink), 0 14px 0 8px rgba(130,90,70,.16) !important; }
+        .header { border-bottom-width: 3px !important; background-image: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,0) 70%); color: var(--text); }
+        .health-bar, .stress-bar { border: 2px solid var(--ink) !important; border-radius: 12px; box-shadow: 0 2px 0 rgba(130,90,70,.2); }
+        button, .btn { border-radius: 12px !important; border: 3px solid rgba(110,64,48,.5) !important;
+                       box-shadow: inset -3px -4px 0 rgba(0,0,0,.12), inset 3px 3px 0 rgba(255,255,255,.55), 0 4px 0 rgba(110,64,48,.38) !important; }
+        button:active, .btn:active { top: 4px; box-shadow: inset -3px -4px 0 rgba(0,0,0,.12), inset 3px 3px 0 rgba(255,255,255,.55), 0 0 0 rgba(110,64,48,.38) !important; }
+        .btn-home { background: #a9a1b8 !important; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div, .inventory, .cook-board, #selected-list { border-radius: 14px; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div { border-color: var(--ink) !important; }
+        .toy-btn { border-width: 3px !important; }
+        .scene, #catch-board, #field, #board { border-radius: 14px; border-color: var(--ink) !important; overflow: hidden; border-width: 3px !important; }
+        #joystick-base { border-color: var(--ink); } #joystick-stick { border-color: var(--ink); }
+        #top-ui { border-bottom-color: var(--ink) !important; }
+
+        /* ===== 봉봉이 모션 ===== */
+        .m-wiggle { animation: mWiggle .36s steps(4) infinite; }
+        .m-spin   { animation: mSpin .5s steps(4) 3; }
+        .m-roll   { animation: mRoll .55s steps(8) 2; transform-origin: 50% 55% !important; }
+        .m-bounce { animation: mBounce .3s steps(3) 3; }
+        .m-tilt   { animation: mTilt 1.4s steps(3) 1 forwards; }
+        .m-dance  { animation: mDance .4s steps(4) infinite; }
+        .m-faint  { animation: mFaint .9s steps(6) 1 forwards; }
+        .m-shiver { animation: mShiver .08s steps(2) infinite; }
+        .m-breath { animation: mBreath 1.2s steps(2) infinite; }
+        @keyframes mWiggle { 0% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } 100% { transform: rotate(-7deg); } }
+        @keyframes mSpin { 0% { transform: scaleX(1); } 25% { transform: scaleX(.15); } 50% { transform: scaleX(-1); } 75% { transform: scaleX(.15); } 100% { transform: scaleX(1); } }
+        @keyframes mRoll { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+        @keyframes mBounce { 0% { transform: scale(1.1,.88); } 50% { transform: translateY(-10px) scale(.93,1.1); } 100% { transform: scale(1.1,.88); } }
+        @keyframes mTilt { 0% { transform: rotate(0); } 35% { transform: rotate(-11deg); } 70% { transform: rotate(9deg); } 100% { transform: rotate(0); } }
+        @keyframes mDance { 0% { transform: rotate(-6deg); } 25% { transform: translateY(-7px); } 50% { transform: rotate(6deg); } 75% { transform: translateY(-7px); } 100% { transform: rotate(-6deg); } }
+        @keyframes mFaint { 0% { transform: rotate(0); } 30% { transform: rotate(-6deg); } 60% { transform: rotate(12deg); } 100% { transform: rotate(82deg) translate(6px, 8px); } }
+        @keyframes mShiver { 0% { transform: translateX(-1.5px); } 100% { transform: translateX(1.5px); } }
+        @keyframes mBreath { 0% { transform: scaleY(1); } 100% { transform: scaleY(.95); } }
+
+        /* ===== 몽글몽글 테마 (위 규칙을 덮어씀) ===== */
+        :root { --ink: #d9ad94; --text: #7a4a3c; --paper: #fffbf4; }
+        body { background-color: var(--bg-a, #ffdbe8) !important;
+               background-image: repeating-linear-gradient(90deg, var(--bg-b, rgba(255,255,255,.5)) 0 18px, transparent 18px 36px), repeating-linear-gradient(0deg, var(--bg-b, rgba(255,255,255,.5)) 0 18px, transparent 18px 36px) !important;
+               background-size: auto !important; background-position: 0 0 !important; }
+        .game-container { border-radius: 30px; border: 3px solid #fff !important; background: var(--paper);
+                          box-shadow: 0 0 0 4px var(--theme, var(--gold)), 0 0 0 7px #fff, 0 10px 0 7px rgba(190,140,115,.28), 0 18px 30px rgba(190,140,115,.25) !important; }
+        .header { position: relative; z-index: 3; border-bottom: 0 !important; padding-bottom: 14px; border-radius: 26px 26px 0 0;
+                  background-image: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,0) 75%); }
+        .header::after { content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 10px; z-index: 3; pointer-events: none;
+                         background: radial-gradient(circle at 9px 0, var(--theme, var(--gold)) 9px, transparent 10px) 0 0 / 18px 10px repeat-x; }
+        .health-bar, .stress-bar { border: 2px solid #fff !important; border-radius: 999px; padding: 4px 9px; box-shadow: 0 3px 0 rgba(190,140,115,.3); }
+        button, .btn { border-radius: 999px !important; border: 3px solid rgba(255,255,255,.85) !important; text-shadow: 0 1px 0 rgba(0,0,0,.18);
+                       background-image: linear-gradient(rgba(255,255,255,.38), rgba(255,255,255,0) 55%) !important;
+                       box-shadow: inset 0 -4px 0 rgba(0,0,0,.1), 0 5px 0 rgba(150,95,75,.32), 0 8px 10px rgba(150,95,75,.18) !important; }
+        button:active, .btn:active { top: 4px; box-shadow: inset 0 -4px 0 rgba(0,0,0,.1), 0 1px 0 rgba(150,95,75,.32) !important; }
+        .btn-home { background-color: #b9aed0 !important; }
+        .btn { background-color: #fffaf0; } .btn:active { background-color: var(--theme); }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div, .inventory, .cook-board, #selected-list { border-radius: 20px; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div { border: 3px solid #fff !important; box-shadow: 0 0 0 2px var(--ink), 0 4px 0 rgba(190,140,115,.25) !important; }
+        .item.selected { box-shadow: 0 0 0 3px var(--theme, var(--gold)), 0 4px 0 rgba(190,140,115,.3) !important; }
+        .toy-btn { box-shadow: inset 0 0 0 4px var(--tc), 0 0 0 2px var(--ink), 0 5px 0 rgba(190,140,115,.3) !important; }
+        .scene, #catch-board, #field, #board { border-radius: 22px; border: 4px solid #fff !important; box-shadow: 0 0 0 2px var(--ink), 0 6px 0 rgba(190,140,115,.28) !important; }
+        #joystick-base { border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 4px rgba(255,255,255,.5); }
+        #joystick-stick { border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px var(--ink), inset 0 -4px 0 rgba(0,0,0,.12); }
+        .btn { border-radius: 50% !important; }
+        #top-ui { border-bottom: 3px dotted var(--ink) !important; }
+        .guide-text, .status-text { color: var(--text) !important; }
+        #top-ui .guide-text { border: 0 !important; box-shadow: none !important; background: none; border-radius: 0; padding: 0; }
     </style>
 </head>
 <body onload="renderToySelection()">
 
 <div class="game-container">
     <div class="header">
-        <h2>🎾 장난감 구하기!</h2>
+        <h2><i class="ic" style="--ix:0;--iy:4;--is:2"></i> 장난감 구하기!</h2>
         <div class="stats">
-            <div class="stress-bar">⚡ 스트레스: <span id="stress-text">50</span></div>
-            <div class="health-bar">❤️ 건강: <span id="hp-text">50</span></div>
+            <div class="stress-bar"><i class="ic" style="--ix:5;--iy:2;--is:1"></i> 스트레스 <span id="stress-text">50</span></div>
+            <div class="health-bar"><i class="ic" style="--ix:6;--iy:2;--is:1"></i> 건강 <span id="hp-text">50</span></div>
         </div>
     </div>
 
     <div id="selection-screen">
-        <h3>🎁 오늘 구할 장난감을 고르세요!</h3>
+        <h3><i class="ic" style="--ix:7;--iy:1;--is:2"></i> 오늘 구할 장난감을 고르세요!</h3>
         <div class="guide-text">
-            🎮 <b>장난감 합치기 룰!</b><br>
+            <i class="ic" style="--ix:2;--iy:4;--is:1"></i> <b>장난감 합치기 룰!</b><br>
             드래그하여 조준하고 <b>손을 떼면</b> 떨어집니다!<br>
-            (개껌 ➡️ 야구공 ➡️ 농구공 ➡️ 배구공 ➡️ 축구공 ➡️ 원반 ➡️ 곰인형 ➡️ <b>목표!</b>)<br>
-            (※ 상자 밖으로 넘치면 실패 🚨)
+            <i class="ic" style="--ix:5;--iy:5;--is:1"></i>▶<i class="ic" style="--ix:7;--iy:4;--is:1"></i>▶<i class="ic" style="--ix:0;--iy:5;--is:1"></i>▶<i class="ic" style="--ix:1;--iy:5;--is:1"></i>▶<i class="ic" style="--ix:3;--iy:5;--is:1"></i>▶<i class="ic" style="--ix:2;--iy:5;--is:1"></i>▶<i class="ic" style="--ix:4;--iy:5;--is:1"></i>▶<b>목표!</b><br>
+            (※ 상자 밖으로 넘치면 실패 <i class="ic" style="--ix:7;--iy:2;--is:1"></i>)
         </div>
         <div id="toy-list"></div>
-        <button class="btn-home" style="margin-top: 20px;" onclick="goHome()">🏠 돌아가기</button>
+        <button class="btn-home" style="margin-top: 14px;" onclick="goHome()"><i class="ic" style="--ix:4;--iy:2;--is:1"></i> 돌아가기</button>
     </div>
 
     <div id="game-ui" style="display: none; flex-direction: column; height: 100%;">
         <div id="top-ui">
+            <div id="avatar"></div>
             <div class="stat-box" id="toyUI">목표: ?</div>
             <div class="stat-box" id="scoreUI">점수: 0</div>
             <div class="stat-box" id="nextUI">다음: ?</div>
         </div>
-        
+
         <div id="game-board-container">
-            <canvas id="gameCanvas" width="300" height="400"></canvas>
+            <div id="board">
+                <canvas id="gameCanvas" width="300" height="400"></canvas>
+                <div id="fxlayer"></div>
+            </div>
         </div>
-        
-        <button class="btn-home" onclick="goHome()">🏠 놀이 포기하고 집에 가기</button>
+
+        <button class="btn-home" onclick="goHome()"><i class="ic" style="--ix:4;--iy:2;--is:1"></i> 놀이 포기하고 집에 가기</button>
     </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-
+<script src="bongbong-sprite.js"></script>
+<script src="bongbong-fx.js"></script>
 <script>
     const today = new Date().toISOString().split('T')[0];
     let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, collectedToys: [], toyLastPlayed: "" };
@@ -110,8 +208,8 @@
             const isCollected = bongbongData.collectedToys.includes(toy.id);
             const btn = document.createElement('button');
             btn.className = `toy-btn ${isCollected ? 'disabled' : ''}`;
-            btn.style.borderColor = toy.color;
-            btn.innerHTML = `${toy.emoji} ${toy.name} ${isCollected ? '(보유중)' : ''}`;
+            btn.style.setProperty('--tc', toy.color);
+            btn.innerHTML = `${BBFX.iconHTML(TOY_ICON[toy.id], 2)} ${toy.name} ${isCollected ? '(보유중)' : ''}`;
             if (!isCollected) btn.onclick = () => startToyGame(toy);
             listDiv.appendChild(btn);
         });
@@ -134,7 +232,8 @@
         currentToy = selectedToy;
         document.getElementById('selection-screen').style.display = 'none';
         document.getElementById('game-ui').style.display = 'flex';
-        document.getElementById('toyUI').innerText = `목표: ${currentToy.emoji}`;
+        document.getElementById('toyUI').innerHTML = `목표: ${BBFX.iconHTML(TOY_ICON[currentToy.id], 2)}`;
+        if (!AV) { AV = new BBFX.Avatar(document.getElementById('avatar'), { scale: 0.3333 }); setTimeout(() => AV.react('hello'), 500); }
         
         EVOLUTION_STAGES[7] = { level: 7, emoji: currentToy.emoji, size: currentToy.finalSize, name: currentToy.name, color: currentToy.color };
         
@@ -192,6 +291,7 @@
                     const newY = (bodyA.position.y + bodyB.position.y) / 2;
                     
                     createNewBody(newX, newY, nextLevel, false);
+                    onMerge(newX, newY, nextLevel);
 
                     if (nextLevel === 7) {
                         gameActive = false;
@@ -234,7 +334,7 @@
 
     function updateNextUI() {
         const nextData = EVOLUTION_STAGES[nextItemLevel];
-        document.getElementById('nextUI').innerText = `다음: ${nextData.emoji}`;
+        document.getElementById('nextUI').innerHTML = `다음: ${BBFX.iconHTML(LV_ICON[nextItemLevel], 2)}`;
     }
 
     function createNewBody(x, y, level, isCurrent) {
@@ -265,7 +365,7 @@
         if (e.touches && e.touches.length > 0) x = e.touches[0].clientX;
         
         if (x !== undefined) {
-            x = x - rect.left;
+            x = (x - rect.left) * canvas.width / rect.width;
             const stageData = EVOLUTION_STAGES[nextItemLevel];
             activeX = Math.max(stageData.size + 10, Math.min(x, canvas.width - stageData.size - 10));
         }
@@ -372,6 +472,7 @@
     }
 
     function handleVictory() {
+        PLAY_END('win');
         setTimeout(() => {
             const toyQuotes = [
                 `"훗, 이 ${currentToy.name}? 꽤 크게 잘 만들었네. 보물창고에 넣어둬."`,
@@ -392,10 +493,11 @@
 
             alert(`🎉 장난감 완성!\n\n봉봉이: ${randomQuote}\n\n최대 스트레스 한도가 ${newMaxStress}으로 줄어듭니다!`);
             window.location.href = 'index.html';
-        }, 500);
+        }, 2200);
     }
 
     function handleDefeat() {
+        PLAY_END('lose');
         setTimeout(() => {
             const failToyQuotes = [
                 "\"장난감이 밖으로 다 튀어나오잖아! 진짜 밥값 못하는 닝겐이네.\"",
@@ -412,8 +514,69 @@
 
             localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
             window.location.href = 'index.html'; 
-        }, 500);
+        }, 1600);
     }
+</script>
+<script>
+/* ===== 도트 렌더러 (물리/합치기 로직은 원본 그대로, 그리기만 교체) ===== */
+const LV_ICON = ['개껌', '테니스공', '삑삑이 오리', '로프', '원반', '도넛 쿠션', '곰인형'];
+const TOY_ICON = ['딸기', '치즈', '메론', '소다', '포도'];
+const TM = {"levels": [{"x": 0, "w": 15}, {"x": 15, "w": 22}, {"x": 37, "w": 28}, {"x": 65, "w": 35}, {"x": 100, "w": 42}, {"x": 142, "w": 50}, {"x": 192, "w": 60}], "targets": [{"x": 252, "w": 80}, {"x": 332, "w": 80}, {"x": 412, "w": 80}, {"x": 492, "w": 80}, {"x": 572, "w": 80}], "tn": 80};
+const PIM = {}; let pready = 0;
+['toy_sprites.png', 'play_bg.png'].forEach(src => { const i = new Image(); i.onload = () => pready++; i.src = src; PIM[src] = i; });
+const PART = document.createElement('canvas'); PART.width = 150; PART.height = 200; const pctx = PART.getContext('2d');
+let AV = null, dangerCd = 0, ended = false;
+const spriteFor = lv => lv < 7 ? TM.levels[lv] : TM.targets[currentToy.id];
+function drawSprite(lv, cx, cy, ang, alpha) {
+    const m = spriteFor(lv), h = lv < 7 ? m.w : TM.tn;
+    pctx.save(); pctx.globalAlpha = alpha == null ? 1 : alpha;
+    pctx.translate(Math.round(cx), Math.round(cy));
+    if (ang) pctx.rotate(Math.round(ang / (Math.PI / 8)) * (Math.PI / 8));
+    pctx.drawImage(PIM['toy_sprites.png'], m.x, 0, m.w, h, -Math.round(m.w / 2), -Math.round(h / 2), m.w, h);
+    pctx.restore();
+}
+function ppa() { return document.getElementById('board').clientWidth / 150; }
+function sparkAt(px, py, k, n) {
+    for (let i = 0; i < (n || 1); i++) BBFX.pop(document.getElementById('fxlayer'), 'sparkle', 0, px / 2 + (Math.random() * 14 - 7) * (n ? 1.5 : 0), py / 2 + (Math.random() * 14 - 7) * (n ? 1.5 : 0), { ppa: ppa(), k: k || .8, fps: 10, seq: [0, 1, 2, 3], ms: 800, dy: -3 });
+}
+function onMerge(x, y, lv) {
+    sparkAt(x, y, .6 + lv * .1);
+    AV.react(lv >= 5 ? 'dance' : lv >= 3 ? 'wiggle' : 'bounce');
+}
+function PLAY_END(kind) {
+    ended = true;
+    if (kind === 'win') {
+        AV.react('love');
+        for (let i = 0; i < 10; i++) setTimeout(() => { sparkAt(150 + (Math.random() * 160 - 80), 200 + (Math.random() * 160 - 90), 1, 1); if (i % 3 === 0) BBFX.pop(document.getElementById('fxlayer'), 'emote', 0, 40 + Math.random() * 70, 60 + Math.random() * 60, { ppa: ppa(), dy: -10, ms: 1000 }); }, i * 160);
+    } else {
+        AV.react('faint');
+        BBFX.pop(document.getElementById('fxlayer'), 'burst', 0, 75, 30, { ppa: ppa(), k: 1.6, fps: 10, seq: [0, 1, 2, 3], ms: 700 });
+        document.getElementById('board').style.animation = 'bbxShake .12s steps(2) 8';
+    }
+}
+function drawGame() {
+    requestAnimationFrame(drawGame);
+    if (pready < 2 || !world) return;
+    pctx.clearRect(0, 0, 150, 200);
+    pctx.drawImage(PIM['play_bg.png'], 0, 0);
+    let danger = false;
+    if (!isDropping && gameActive) {
+        const sd = EVOLUTION_STAGES[nextItemLevel];
+        pctx.fillStyle = 'rgba(59,36,24,.28)';
+        for (let y = Math.round((30 + sd.size) / 2) + 2; y < 200; y += 4) pctx.fillRect(Math.round(activeX / 2), y, 1, 2);
+        drawSprite(nextItemLevel, activeX / 2, 15, 0, 0.7);
+    }
+    Matter.Composite.allBodies(world).forEach(b => {
+        const d = bodiesMap[b.id]; if (!d) return;
+        drawSprite(d.level, b.position.x / 2, b.position.y / 2, b.angle);
+        if (!d.isCurrent && b.position.y - d.size < 62 && b.position.y > 40 && Math.abs(b.velocity.y) < 0.6) danger = true;
+    });
+    if (danger && gameActive) {
+        pctx.fillStyle = Math.floor(Date.now() / 160) % 2 ? 'rgba(230,40,40,.28)' : 'rgba(230,40,40,.1)'; pctx.fillRect(0, 0, 150, 25);
+        if (Date.now() > dangerCd && AV) { dangerCd = Date.now() + 3500; AV.react('shiver'); }
+    }
+    const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 300, 400); g.drawImage(PART, 0, 0, 300, 400);
+}
 </script>
 </body>
 </html>

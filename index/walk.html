@@ -5,62 +5,161 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>강아지 미로 - 산책하기</title>
     <style>
-        body { font-family: 'Malgun Gothic', 'Segoe UI Emoji', sans-serif; margin: 0; height: 100vh; background: linear-gradient(135deg, #f0fdf4, #dcfce7); display: flex; align-items: center; justify-content: center; overscroll-behavior-y: contain; touch-action: none; user-select: none; }
-        .game-container { width: 100%; max-width: 480px; box-sizing: border-box; background: rgba(255, 255, 255, 0.95); border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); border: 4px solid #86efac; text-align: center; overflow: hidden; margin: 10px; display: flex; flex-direction: column; }
-        .header { background: #86efac; padding: 15px; margin: 0; color: #166534; display: flex; justify-content: space-between; align-items: center;}
-        .header h2 { margin: 0; font-size: 18px; letter-spacing: -0.5px; } 
-        .stats { display: flex; gap: 5px; }
-        .health-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #d32f2f; }
-        .stress-bar { font-size: 14px; font-weight: bold; background: #fff; padding: 5px 8px; border-radius: 10px; color: #6c5ce7; }
-        #top-ui { padding: 10px; border-bottom: 2px dashed #bbf7d0; }
-        .guide-text { font-size: 14px; color: #15803d; font-weight: bold; margin-bottom: 5px; line-height: 1.4; }
-        .status-text { font-size: 18px; font-weight: bold; color: #166534; }
-        canvas { background: #ffffff; border-radius: 10px; margin: 15px auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 90%; max-width: 400px; aspect-ratio: 1 / 1; display: block; }
-        #controls-panel { display: flex; justify-content: space-around; align-items: center; padding: 10px; margin-bottom: 10px; }
-        #joystick-base { width: 100px; height: 100px; background: rgba(255, 255, 255, 0.5); border: 3px solid #bbf7d0; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; touch-action: none; }
-        #joystick-stick { width: 50px; height: 50px; background: #86efac; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.2); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); touch-action: none; }
+        /* ===== 픽셀 폰트: Galmuri (SIL OFL) — 글자 일부만 담은 경량 버전 ===== */
+        @font-face { font-family: 'Pix'; src: url('Galmuri11-Bold-sub.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+
+        :root { --ink: #3b2418; --gold: #ffcc00; --paper: #fff6df; --theme: #ffcc00; --theme-bg: #f3d9a4; --theme-bg2: #ecc98a; }
+        * { box-sizing: border-box; }
+
+        body { font-family: 'Pix', 'Malgun Gothic', sans-serif; font-size: 13px; font-weight: 700; color: var(--ink); margin: 0; min-height: 100vh; padding: 10px; display: flex; align-items: center; justify-content: center; overscroll-behavior-y: contain; touch-action: none; user-select: none;
+               background-color: var(--theme-bg);
+               background-image: linear-gradient(45deg, var(--theme-bg2) 25%, transparent 25%, transparent 75%, var(--theme-bg2) 75%), linear-gradient(45deg, var(--theme-bg2) 25%, transparent 25%, transparent 75%, var(--theme-bg2) 75%);
+               background-size: 32px 32px; background-position: 0 0, 16px 16px; }
+
+        /* 도트 아이콘 (pix_icons.png) — --is: 16px 아이콘의 배율 */
+        .ic { display: inline-block; width: calc(16px * var(--is, 1)); height: calc(16px * var(--is, 1)); background: url('pix_icons.png') no-repeat; image-rendering: pixelated; vertical-align: -0.2em;
+              background-size: calc(128px * var(--is, 1)) calc(96px * var(--is, 1)); background-position: calc(var(--ix) * -16px * var(--is, 1)) calc(var(--iy) * -16px * var(--is, 1)); }
+
+        .game-container { width: 100%; max-width: 480px; background: var(--paper); border: 4px solid var(--ink); box-shadow: 0 0 0 4px var(--theme), 0 0 0 8px var(--ink), 10px 10px 0 8px rgba(59,36,24,0.25); text-align: center; overflow: hidden; margin: 8px; display: flex; flex-direction: column; position: relative; }
+        .header { background: var(--theme); padding: 12px; margin: 0; color: var(--ink); display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ink); }
+        .header h2 { margin: 0; font-size: 16px; letter-spacing: -0.5px; text-align: left; }
+        .stats { display: flex; gap: 4px; }
+        .health-bar, .stress-bar { font-size: 12px; font-weight: bold; background: #fff; padding: 4px 6px; border: 2px solid var(--ink); white-space: nowrap; }
+        .health-bar { color: #c62828; } .stress-bar { color: #5e35b1; }
+
+        button { font-family: inherit; color: #fff; border: 3px solid var(--ink); padding: 9px 12px; font-size: 14px; cursor: pointer; font-weight: bold; border-radius: 0; position: relative; top: 0;
+                 box-shadow: inset -3px -3px 0 rgba(0,0,0,0.25), inset 3px 3px 0 rgba(255,255,255,0.35), 0 4px 0 var(--ink); }
+        button:hover { filter: brightness(1.08); }
+        button:active { top: 4px; box-shadow: inset -3px -3px 0 rgba(0,0,0,0.25), inset 3px 3px 0 rgba(255,255,255,0.35), 0 0 0 var(--ink); }
+        .btn-home { background: #757575; margin: 10px 14px 14px; }
+        :root { --bg-a: #c9edcf; --theme: #8fdc8a; --theme-bg: #bfe5a4; --theme-bg2: #b2da97; }
+        .game-container { position: relative; }
+        .header { color: #1f4d2a; }
+        .header h2 { display: flex; align-items: center; gap: 6px; }
+        #top-ui { padding: 10px 96px 10px 10px; border-bottom: 4px dashed #6fb374; position: relative; min-height: 96px; background: #eaf8d9; }
+        #avatar { position: absolute; right: 8px; top: 6px; width: 80px; height: 80px; }
+        .guide-text { font-size: 12px; color: #2c6a38; line-height: 1.7; margin-bottom: 4px; text-align: left; }
+        .status-text { font-size: 15px; color: #1f4d2a; text-align: left; }
+        #field { position: relative; width: 90%; max-width: 400px; margin: 14px auto; aspect-ratio: 1/1; border: 4px solid var(--ink); box-shadow: 4px 4px 0 rgba(59,36,24,.3); background: #7ec26b; }
+        canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+        #fxlayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        #controls-panel { display: flex; justify-content: space-around; align-items: center; padding: 6px 10px 4px; }
+        #joystick-base { width: 104px; height: 104px; background: #d8efc4; border: 4px solid var(--ink); box-shadow: inset 0 0 0 4px #bfe0a8; display: flex; align-items: center; justify-content: center; position: relative; touch-action: none; }
+        #joystick-stick { width: 44px; height: 44px; background: var(--theme); border: 4px solid var(--ink); box-shadow: inset -4px -4px 0 rgba(0,0,0,.25), inset 4px 4px 0 rgba(255,255,255,.4); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); touch-action: none; }
         #buttons-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .btn { width: 45px; height: 45px; background: rgba(255, 255, 255, 0.7); border: 2px solid #86efac; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; }
-        .btn:active { background: #86efac; transform: scale(0.9); }
+        .btn { width: 46px; height: 46px; background: #fff6df; color: var(--ink); border: 3px solid var(--ink); display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; box-shadow: inset -3px -3px 0 rgba(0,0,0,.18), 0 4px 0 var(--ink); position: relative; }
+        .btn:active { top: 4px; box-shadow: inset -3px -3px 0 rgba(0,0,0,.18), 0 0 0 var(--ink); background: var(--theme); }
         .up { grid-column: 2; } .left { grid-column: 1; } .down { grid-column: 2; } .right { grid-column: 3; }
-        .btn-home { background: #757575; color: white; border: none; padding: 12px; font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-home:hover { background: #616161; }
+        .btn-home .ic { margin-right: 4px; }
+        /* ===== 말랑 도트 테마: 연한 외곽선 · 둥근 모서리 · 파스텔 ===== */
+        :root { --ink: #b07c5f; --text: #6a4033; --paper: #fffaf0; }
+        body { color: var(--text); }
+        .header, .header h2, .toy-btn, .btn, .item, .stat-box, .guide-text, .status-text { color: var(--text); }
+        .game-container { border-radius: 22px; border-width: 3px !important; box-shadow: 0 0 0 5px var(--theme, var(--gold)), 0 0 0 8px var(--ink), 0 14px 0 8px rgba(130,90,70,.16) !important; }
+        .header { border-bottom-width: 3px !important; background-image: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,0) 70%); color: var(--text); }
+        .health-bar, .stress-bar { border: 2px solid var(--ink) !important; border-radius: 12px; box-shadow: 0 2px 0 rgba(130,90,70,.2); }
+        button, .btn { border-radius: 12px !important; border: 3px solid rgba(110,64,48,.5) !important;
+                       box-shadow: inset -3px -4px 0 rgba(0,0,0,.12), inset 3px 3px 0 rgba(255,255,255,.55), 0 4px 0 rgba(110,64,48,.38) !important; }
+        button:active, .btn:active { top: 4px; box-shadow: inset -3px -4px 0 rgba(0,0,0,.12), inset 3px 3px 0 rgba(255,255,255,.55), 0 0 0 rgba(110,64,48,.38) !important; }
+        .btn-home { background: #a9a1b8 !important; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div, .inventory, .cook-board, #selected-list { border-radius: 14px; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div { border-color: var(--ink) !important; }
+        .toy-btn { border-width: 3px !important; }
+        .scene, #catch-board, #field, #board { border-radius: 14px; border-color: var(--ink) !important; overflow: hidden; border-width: 3px !important; }
+        #joystick-base { border-color: var(--ink); } #joystick-stick { border-color: var(--ink); }
+        #top-ui { border-bottom-color: var(--ink) !important; }
+
+        /* ===== 봉봉이 모션 ===== */
+        .m-wiggle { animation: mWiggle .36s steps(4) infinite; }
+        .m-spin   { animation: mSpin .5s steps(4) 3; }
+        .m-roll   { animation: mRoll .55s steps(8) 2; transform-origin: 50% 55% !important; }
+        .m-bounce { animation: mBounce .3s steps(3) 3; }
+        .m-tilt   { animation: mTilt 1.4s steps(3) 1 forwards; }
+        .m-dance  { animation: mDance .4s steps(4) infinite; }
+        .m-faint  { animation: mFaint .9s steps(6) 1 forwards; }
+        .m-shiver { animation: mShiver .08s steps(2) infinite; }
+        .m-breath { animation: mBreath 1.2s steps(2) infinite; }
+        @keyframes mWiggle { 0% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } 100% { transform: rotate(-7deg); } }
+        @keyframes mSpin { 0% { transform: scaleX(1); } 25% { transform: scaleX(.15); } 50% { transform: scaleX(-1); } 75% { transform: scaleX(.15); } 100% { transform: scaleX(1); } }
+        @keyframes mRoll { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+        @keyframes mBounce { 0% { transform: scale(1.1,.88); } 50% { transform: translateY(-10px) scale(.93,1.1); } 100% { transform: scale(1.1,.88); } }
+        @keyframes mTilt { 0% { transform: rotate(0); } 35% { transform: rotate(-11deg); } 70% { transform: rotate(9deg); } 100% { transform: rotate(0); } }
+        @keyframes mDance { 0% { transform: rotate(-6deg); } 25% { transform: translateY(-7px); } 50% { transform: rotate(6deg); } 75% { transform: translateY(-7px); } 100% { transform: rotate(-6deg); } }
+        @keyframes mFaint { 0% { transform: rotate(0); } 30% { transform: rotate(-6deg); } 60% { transform: rotate(12deg); } 100% { transform: rotate(82deg) translate(6px, 8px); } }
+        @keyframes mShiver { 0% { transform: translateX(-1.5px); } 100% { transform: translateX(1.5px); } }
+        @keyframes mBreath { 0% { transform: scaleY(1); } 100% { transform: scaleY(.95); } }
+
+        /* ===== 몽글몽글 테마 (위 규칙을 덮어씀) ===== */
+        :root { --ink: #d9ad94; --text: #7a4a3c; --paper: #fffbf4; }
+        body { background-color: var(--bg-a, #ffdbe8) !important;
+               background-image: repeating-linear-gradient(90deg, var(--bg-b, rgba(255,255,255,.5)) 0 18px, transparent 18px 36px), repeating-linear-gradient(0deg, var(--bg-b, rgba(255,255,255,.5)) 0 18px, transparent 18px 36px) !important;
+               background-size: auto !important; background-position: 0 0 !important; }
+        .game-container { border-radius: 30px; border: 3px solid #fff !important; background: var(--paper);
+                          box-shadow: 0 0 0 4px var(--theme, var(--gold)), 0 0 0 7px #fff, 0 10px 0 7px rgba(190,140,115,.28), 0 18px 30px rgba(190,140,115,.25) !important; }
+        .header { position: relative; z-index: 3; border-bottom: 0 !important; padding-bottom: 14px; border-radius: 26px 26px 0 0;
+                  background-image: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,0) 75%); }
+        .header::after { content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 10px; z-index: 3; pointer-events: none;
+                         background: radial-gradient(circle at 9px 0, var(--theme, var(--gold)) 9px, transparent 10px) 0 0 / 18px 10px repeat-x; }
+        .health-bar, .stress-bar { border: 2px solid #fff !important; border-radius: 999px; padding: 4px 9px; box-shadow: 0 3px 0 rgba(190,140,115,.3); }
+        button, .btn { border-radius: 999px !important; border: 3px solid rgba(255,255,255,.85) !important; text-shadow: 0 1px 0 rgba(0,0,0,.18);
+                       background-image: linear-gradient(rgba(255,255,255,.38), rgba(255,255,255,0) 55%) !important;
+                       box-shadow: inset 0 -4px 0 rgba(0,0,0,.1), 0 5px 0 rgba(150,95,75,.32), 0 8px 10px rgba(150,95,75,.18) !important; }
+        button:active, .btn:active { top: 4px; box-shadow: inset 0 -4px 0 rgba(0,0,0,.1), 0 1px 0 rgba(150,95,75,.32) !important; }
+        .btn-home { background-color: #b9aed0 !important; }
+        .btn { background-color: #fffaf0; } .btn:active { background-color: var(--theme); }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div, .inventory, .cook-board, #selected-list { border-radius: 20px; }
+        .item, .timer-box, .bonbong-status, .instruction-box, .guide-text, .toy-btn, #result-msg > div { border: 3px solid #fff !important; box-shadow: 0 0 0 2px var(--ink), 0 4px 0 rgba(190,140,115,.25) !important; }
+        .item.selected { box-shadow: 0 0 0 3px var(--theme, var(--gold)), 0 4px 0 rgba(190,140,115,.3) !important; }
+        .toy-btn { box-shadow: inset 0 0 0 4px var(--tc), 0 0 0 2px var(--ink), 0 5px 0 rgba(190,140,115,.3) !important; }
+        .scene, #catch-board, #field, #board { border-radius: 22px; border: 4px solid #fff !important; box-shadow: 0 0 0 2px var(--ink), 0 6px 0 rgba(190,140,115,.28) !important; }
+        #joystick-base { border-radius: 50%; border: 4px solid #fff; box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 4px rgba(255,255,255,.5); }
+        #joystick-stick { border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 2px var(--ink), inset 0 -4px 0 rgba(0,0,0,.12); }
+        .btn { border-radius: 50% !important; }
+        #top-ui { border-bottom: 3px dotted var(--ink) !important; }
+        .guide-text, .status-text { color: var(--text) !important; }
+        #top-ui .guide-text { border: 0 !important; box-shadow: none !important; background: none; border-radius: 0; padding: 0; }
     </style>
 </head>
 <body>
 
 <div class="game-container">
     <div class="header">
-        <h2>🌳 도그파크 산책</h2>
+        <h2><i class="ic" style="--ix:4;--iy:3;--is:2"></i> 도그파크 산책</h2>
         <div class="stats">
-            <div class="stress-bar">⚡ 스트레스: <span id="stress-text">50</span></div>
-            <div class="health-bar">❤️ 건강: <span id="hp-text">50</span></div>
+            <div class="stress-bar"><i class="ic" style="--ix:5;--iy:2;--is:1"></i> 스트레스 <span id="stress-text">50</span></div>
+            <div class="health-bar"><i class="ic" style="--ix:6;--iy:2;--is:1"></i> 건강 <span id="hp-text">50</span></div>
         </div>
     </div>
 
     <div id="top-ui">
         <div class="guide-text">
-            🐾 규칙: 🐱피해 🦴찾기! (고양이 닿으면 페널티!)<br> 
-            🌀 워프는 2초 전 깜빡! <span style="color: #ef4444;">레벨업 시 워프 추가!</span>
+            <i class="ic" style="--ix:5;--iy:3;--is:1"></i> 규칙: <i class="ic" style="--ix:3;--iy:2;--is:1"></i>피해 <i class="ic" style="--ix:2;--iy:1;--is:1"></i>찾기! (고양이 닿으면 페널티!)<br>
+            <i class="ic" style="--ix:6;--iy:3;--is:1"></i> 워프는 2초 전 깜빡! <span style="color: #d33;">레벨업 시 워프 추가!</span>
         </div>
-        <div class="status-text" id="status">💎 현재 레벨 도전 중...</div>
+        <div class="status-text" id="status"><i class="ic" style="--ix:7;--iy:3;--is:1"></i> 현재 레벨 도전 중...</div>
+        <div id="avatar"></div>
     </div>
 
-    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="field">
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div id="fxlayer"></div>
+    </div>
 
     <div id="controls-panel">
         <div id="joystick-base"><div id="joystick-stick"></div></div>
         <div id="buttons-grid">
-            <div class="btn up" id="btnUp">🔼</div>
-            <div class="btn left" id="btnLeft">◀️</div>
-            <div class="btn down" id="btnDown">🔽</div>
-            <div class="btn right" id="btnRight">▶️</div>
+            <div class="btn up" id="btnUp">▲</div>
+            <div class="btn left" id="btnLeft">◀</div>
+            <div class="btn down" id="btnDown">▼</div>
+            <div class="btn right" id="btnRight">▶</div>
         </div>
     </div>
 
-    <button class="btn-home" onclick="goHome()">🏠 산책 포기하고 집으로 돌아가기</button>
+    <button class="btn-home" onclick="goHome()"><i class="ic" style="--ix:4;--iy:2;--is:1"></i> 산책 포기하고 집으로 돌아가기</button>
 </div>
 
+<script src="bongbong-sprite.js"></script>
+<script src="bongbong-fx.js"></script>
 <script>
 const today = new Date().toISOString().split('T')[0];
 let bongbongData = JSON.parse(localStorage.getItem('bongbongData')) || { stress: 50, health: 50, walkLevel: 1, walkLastPlayed: "", collectedToys: [] };
@@ -71,7 +170,7 @@ if (bongbongData.walkLastPlayed === today) {
 }
 
 let level = bongbongData.walkLevel > 5 ? 5 : bongbongData.walkLevel;
-document.getElementById('status').innerText = `💎 산책 LV: ${level}`;
+document.getElementById('status').innerHTML = BBFX.iconHTML('gem', 1) + ` 산책 LV: ${level}`;
 document.getElementById('stress-text').innerText = bongbongData.stress !== undefined ? bongbongData.stress : 50;
 document.getElementById('hp-text').innerText = bongbongData.health;
 
@@ -149,7 +248,7 @@ function moveDog(dx, dy) {
 
         // 성공 클리어
         if(dog.x === bone.x && dog.y === bone.y) { 
-            gameActive = false; draw();
+            gameActive = false; WIN();
             setTimeout(() => {
                 const walkQuotes = [
                     "\"흥, 나 사실 고양이 따위 다 이길 수 있는데 이번만 봐준거다 멍!\"",
@@ -173,7 +272,7 @@ function moveDog(dx, dy) {
                 
                 localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
                 window.location.href = 'index.html'; 
-            }, 100);
+            }, 2000);
         }
     }
 }
@@ -223,7 +322,8 @@ function gameLoop() {
             
             // 🔥 고양이 충돌 페널티 로직 추가
             if(c.x === dog.x && c.y === dog.y && gameActive) {
-                gameActive = false;
+                gameActive = false; FAIL();
+                setTimeout(() => {
                 const failWalkQuotes = [
                     "\"푸흡, 고작 고양이 한 마리 못 피해서 산책을 망치냐 멍? 수준하고는...\"",
                     "\"닝겐, 네 다리는 장식이냐멍? 나까지 길 잃게 만들다니 정말 대단하다.\"",
@@ -243,13 +343,124 @@ function gameLoop() {
                 bongbongData.walkLastPlayed = today; // 실패해도 오늘 기회 소진
                 localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
                 window.location.href = 'index.html';
+                }, 1400);
             }
         });
         catMoveTimer = 0;
     }
-    if(gameActive) { draw(); setTimeout(gameLoop, 100); }
+    if(gameActive) { setTimeout(gameLoop, 100); }
 }
 window.addEventListener('resize', initJoystick); initLevel(); initJoystick(); gameLoop();
+</script>
+<script>
+/* ===== 도트 렌더러 (원본 로직은 그대로, 그리기만 교체) ===== */
+const T = 20;                        // 타일 = 도트 20칸 (캔버스에서는 ×2 = 40px)
+const ART = document.createElement('canvas'); ART.width = 300; ART.height = 300;
+const actx = ART.getContext('2d');
+const IM = {}; let ready = 0;
+['walk_tiles.png', 'pix_icons.png', 'bongbong_sprites.png'].forEach(src => { const i = new Image(); i.onload = () => { ready++; if (ready === 3) buildDogFrames(); }; i.src = src; IM[src] = i; });
+const AV = new BBFX.Avatar(document.getElementById('avatar'), { scale: 0.3333 });
+const fxlayer = document.getElementById('fxlayer');
+const DOGW = 22, DOGH = Math.ceil(337 * DOGW / 214);
+let dogF = {}, dogFacing = 1, lastMoveAt = 0, winAt = 0, failAt = 0, lastDog = null, nearCd = 0;
+
+function frameCanvas(row, col) {
+    const c = document.createElement('canvas'); c.width = DOGW; c.height = DOGH;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(IM['bongbong_sprites.png'], col * 214, row * 347, 214, 337, 0, 0, DOGW, DOGH);
+    const d = g.getImageData(0, 0, DOGW, DOGH); for (let i = 3; i < d.data.length; i += 4) d.data[i] = d.data[i] > 110 ? 255 : 0;   // 또렷한 도트로
+    g.putImageData(d, 0, 0); return c;
+}
+function buildDogFrames() {
+    dogF.walk = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(c => frameCanvas(0, c));
+    dogF.stand = frameCanvas(1, 5);
+    dogF.jump = BongbongSprite.SEQ.jump.map(f => frameCanvas(f[0], f[1]));
+    dogF.sit = frameCanvas(1, 0);
+}
+const hash = (x, y, n) => Math.abs((x * 73856093) ^ (y * 19349663)) % n;
+
+function tile(sx, sy, dx, dy) { actx.drawImage(IM['walk_tiles.png'], sx, sy, T, T, dx, dy, T, T); }
+function icon(i, cx, cy) { actx.drawImage(IM['pix_icons.png'], (i % 8) * 16, Math.floor(i / 8) * 16, 16, 16, Math.round(cx - 8), Math.round(cy - 8), 16, 16); }
+function pawPrint(cx, cy, a) {
+    actx.globalAlpha = a; actx.fillStyle = '#7a4a2a';
+    actx.fillRect(cx - 2, cy, 4, 3); actx.fillRect(cx - 3, cy - 2, 1, 1); actx.fillRect(cx - 1, cy - 3, 1, 1); actx.fillRect(cx + 1, cy - 3, 1, 1); actx.fillRect(cx + 2, cy - 2, 1, 1);
+    actx.globalAlpha = 1;
+}
+function portalSprite(cx, cy, color, t, alpha) {
+    actx.globalAlpha = alpha;
+    const f = Math.floor(t / 120) % 4;
+    actx.fillStyle = color;
+    const ring = [[-4,-6,8,2],[-6,-4,2,8],[4,-4,2,8],[-4,4,8,2],[-5,-5,1,1],[4,-5,1,1],[-5,4,1,1],[4,4,1,1]];
+    ring.forEach(r => actx.fillRect(cx + r[0], cy + r[1], r[2], r[3]));
+    actx.fillStyle = '#fff';
+    const sp = [[-3,-3],[2,-3],[2,2],[-3,2]]; const p = sp[f]; actx.fillRect(cx + p[0], cy + p[1], 2, 2);
+    actx.fillStyle = color; actx.globalAlpha = alpha * .9; actx.fillRect(cx - 3, cy - 3, 6, 6);
+    actx.globalAlpha = 1;
+}
+
+function draw() {
+    if (ready < 3 || !currentMaze.length) return;
+    const now = Date.now();
+    actx.clearRect(0, 0, 300, 300);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        if (currentMaze[y][x] === 1) { actx.drawImage(IM['walk_tiles.png'], 0, 0, T, T, x * T, y * T, T, T); tile(hash(x, y, 3) * 20, 20, x * T, y * T); }
+        else tile(hash(x + 3, y + 1, 5) * 20, 0, x * T, y * T);
+    }
+    footprints.forEach((fp, i) => pawPrint(fp.x * T + 10, fp.y * T + 11, 0.5 * (1 - (footprints.length - 1 - i) / 10)));
+    const warn = portalTimer >= 5000;
+    portals.forEach(p => {
+        const a = warn ? (Math.sin(now / 90) > 0 ? 1 : 0.25) : 0.95;
+        portalSprite(p.a.x * T + 10, p.a.y * T + 10, p.color, now, a); portalSprite(p.b.x * T + 10, p.b.y * T + 10, p.color, now + 200, a);
+    });
+    const bob = Math.floor(now / 300) % 2;
+    icon(BBFX.ICM.idx['황금 뼈다귀'], bone.x * T + 10, bone.y * T + 10 + bob - 1);
+    cats.forEach((c, i) => {
+        const sx = (i % 3) * 40 + (Math.floor(now / 350 + i) % 2 ? 20 : 0), flip = c.dir.x < 0;
+        actx.save();
+        if (flip) { actx.translate(c.x * T + T, c.y * T); actx.scale(-1, 1); actx.drawImage(IM['walk_tiles.png'], sx, 40, T, T, 0, 0, T, T); }
+        else actx.drawImage(IM['walk_tiles.png'], sx, 40, T, T, c.x * T, c.y * T, T, T);
+        actx.restore();
+    });
+    // 봉봉이
+    let f = dogF.stand, jy = 0;
+    if (winAt) { const k = Math.floor((now - winAt) / 100) % dogF.jump.length; f = dogF.jump[k]; }
+    else if (failAt) f = dogF.sit;
+    else if (now - lastMoveAt < 260) f = dogF.walk[Math.floor(now / 70) % 10];
+    const dx = dog.x * T + T / 2 - DOGW / 2, dy = dog.y * T + T - DOGH + 1;
+    actx.save();
+    if (dogFacing < 0) { actx.translate(dx + DOGW, 0); actx.scale(-1, 1); }
+    if (failAt && Math.floor(now / 60) % 2) actx.translate(1, 0);
+    actx.drawImage(f, dogFacing < 0 ? 0 : dx, dy);
+    actx.restore();
+    const g = document.getElementById('gameCanvas').getContext('2d');
+    g.imageSmoothingEnabled = false; g.clearRect(0, 0, 600, 600); g.drawImage(ART, 0, 0, 600, 600);
+}
+function ppa() { return document.getElementById('field').clientWidth / 300; }
+function fxAt(name, tx, ty, o) { o = o || {}; BBFX.pop(fxlayer, name, o.frame || 0, tx * T + 10 + (o.ox || 0), ty * T + 4 + (o.oy || 0), Object.assign({ ppa: ppa(), k: o.k || .7 }, o.o || {})); }
+function trackDog() {
+    if (lastDog && (lastDog.x !== dog.x || lastDog.y !== dog.y)) {
+        const d = Math.abs(lastDog.x - dog.x) + Math.abs(lastDog.y - dog.y);
+        if (d > 1) {      // 워프
+            fxAt('sparkle', lastDog.x, lastDog.y, { o: { fps: 10, seq: [0,1,2,3], ms: 700 } }); fxAt('sparkle', dog.x, dog.y, { o: { fps: 10, seq: [0,1,2,3], ms: 700 } }); AV.hop();
+        } else { dogFacing = dog.x > lastDog.x ? 1 : dog.x < lastDog.x ? -1 : dogFacing; lastMoveAt = Date.now(); }
+        lastMoveAt = Date.now();
+    }
+    lastDog = { x: dog.x, y: dog.y };
+    if (!winAt && !failAt && Date.now() > nearCd) {
+        if (cats.some(c => Math.abs(c.x - dog.x) + Math.abs(c.y - dog.y) <= 2)) { nearCd = Date.now() + 2600; AV.react('shiver'); fxAt('emote', dog.x, dog.y, { frame: 2, o: { dy: -5, ms: 900 } }); }
+    }
+}
+function renderLoop() { trackDog(); draw(); requestAnimationFrame(renderLoop); }
+function WIN() {
+    winAt = Date.now(); AV.react('love');
+    for (let i = 0; i < 5; i++) setTimeout(() => fxAt(i % 2 ? 'sparkle' : 'emote', dog.x + (i % 3 - 1) * .8, dog.y - 0.5, { frame: 0, ox: (i - 2) * 3, o: { dy: -7, ms: 1000, fps: i % 2 ? 10 : 0, seq: [0,1,2,3] } }), i * 260);
+}
+function FAIL() {
+    failAt = Date.now(); AV.react('faint'); fxAt('burst', dog.x, dog.y, { k: 1, o: { fps: 10, seq: [0,1,2,3], ms: 600 } }); fxAt('emote', dog.x, dog.y, { frame: 1, o: { dy: -6, ms: 1100 } });
+}
+renderLoop();
+
+setTimeout(() => AV.react('hello'), 700);
 </script>
 </body>
 </html>

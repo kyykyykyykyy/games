@@ -6,86 +6,120 @@
     <title>봉봉프린스메이커</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Jua', sans-serif; display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, #ffeaa7, #fab1a0); padding: 20px; text-align: center; margin: 0; min-height: 100vh; box-sizing: border-box; }
-        #game-container { max-width: 420px; width: 100%; background: #ffffff; padding: 25px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); box-sizing: border-box; border: 4px solid #fff; position: relative; }
-        h2 { margin: 0 0 15px 0; color: #d63031; font-size: 28px; text-shadow: 2px 2px 0px #ffeaa7; }
-        
-        #character-area { position: relative; display: inline-block; cursor: pointer; margin: 20px 0; }
-        #bongbong-character { font-size: 70px; animation: bounce 1.5s infinite ease-in-out; display: inline-block; transition: 0.2s; }
-        #bongbong-character:active { transform: scale(0.9); }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
-        
-        .speech-bubble { position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #ff7675; color: white; padding: 5px 10px; border-radius: 15px; font-size: 14px; font-weight: bold; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: float 2s infinite; pointer-events: none; }
-        .speech-bubble::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border-width: 6px 6px 0; border-style: solid; border-color: #ff7675 transparent transparent transparent; }
-        @keyframes float { 0%, 100% { top: -30px; } 50% { top: -35px; } }
-
-        .status-box { margin-bottom: 15px; text-align: left; }
-        .status-label { font-size: 18px; color: #2d3436; display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .bar-container { width: 100%; height: 26px; border-radius: 13px; background: #dfe6e9; overflow: hidden; box-shadow: inset 0 3px 6px rgba(0,0,0,0.1); position: relative; }
-        .bar-fill { height: 100%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; box-sizing: border-box; }
-        .stress-fill { background: linear-gradient(90deg, #a29bfe, #6c5ce7); }
-        .health-fill { background: linear-gradient(90deg, #ff7675, #d63031); }
-        .bar-text { position: absolute; width: 100%; text-align: center; top: 4px; color: white; font-size: 15px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); letter-spacing: 1px; }
-
-        .button-group { display: flex; justify-content: space-between; margin-top: 25px; gap: 10px; }
-        .btn { flex: 1; padding: 12px 5px; border: none; border-radius: 15px; color: white; font-family: 'Jua', sans-serif; font-size: 16px; cursor: pointer; transition: 0.1s; position: relative; box-shadow: 0 6px 0px rgba(0,0,0,0.2); }
-        .btn-eat { background: #fdcb6e; box-shadow: 0 6px 0px #e1b12c; color: #2d3436;}
-        .btn-walk { background: #55efc4; box-shadow: 0 6px 0px #00b894; color: #2d3436;}
-        .btn-play { background: #74b9ff; box-shadow: 0 6px 0px #0984e3; color: #2d3436;}
-        .btn:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 0px 0px rgba(0,0,0,0.2); }
-        .btn:disabled { background: #b2bec3 !important; box-shadow: 0 6px 0px #636e72 !important; color: #fff !important; cursor: not-allowed; }
-
-        #greet-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; justify-content: center; align-items: center; }
-        .modal-content { background: #fffcf2; width: 90%; max-width: 350px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 4px solid #ffcc00; text-align: center; }
-        .modal-content h3 { color: #d35400; margin-top: 0; font-size: 20px; }
-        .greet-btn { display: block; width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ccc; border-radius: 10px; background: #fff; font-family: 'Jua', sans-serif; font-size: 15px; color: #333; cursor: pointer; transition: 0.2s; }
-        .greet-btn:hover { background: #ffeaa7; border-color: #fdcb6e; transform: scale(1.02); }
-        .close-btn { margin-top: 15px; background: #b2bec3; color: white; border: none; padding: 8px 20px; border-radius: 10px; font-family: 'Jua', sans-serif; cursor: pointer; }
-
-        .instructions { margin-top: 30px; background: #f1f2f6; border: 3px dashed #ced6e0; padding: 15px; border-radius: 15px; text-align: left; font-size: 14px; color: #2f3542; line-height: 1.6; }
+        :root { --text: #5f4f8a; --u: 3.6px; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Jua', sans-serif; margin: 0; min-height: 100vh; text-align: center; color: var(--text); background: linear-gradient(180deg, #efe7ff, #f7f1ff); padding: 12px 10px 28px; }
+        /* ===== 방이 화면을 꽉 채움 ===== */
+        #game-container { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: url('room_bg.png') 0 0 / 100% 100% no-repeat; image-rendering: pixelated; }
+        #wrap { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 28px; border: 0; box-shadow: 0 0 0 4px #fff, 0 0 0 7px #cdbdf2, 0 12px 28px rgba(100,80,160,.22); overflow: hidden; background: #faf7ff; }
+        #hud { display: flex; gap: 10px; align-items: center; background: #f3edff; padding: 10px 14px; border-bottom: 3px solid #ddd2f8; }
+        #bars { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .status-box { margin: 0; text-align: left; }
+        .status-label { font-size: 12px; color: var(--text); display: flex; justify-content: space-between; margin: 0 0 1px; }
+        .bar-container { position: relative; width: 100%; height: 16px; border-radius: 9px; background: #ece6f8; border: 2px solid #fff; box-shadow: 0 0 0 2px #d6cbf0; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width .5s steps(10); -webkit-mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 10px); mask: repeating-linear-gradient(90deg, #000 0 8px, transparent 8px 10px); }
+        .stress-fill { background: linear-gradient(180deg, #cfc5ff, #a99bf5); } .health-fill { background: linear-gradient(180deg, #ffb7c4, #ff8da4); }
+        .bar-text { position: absolute; inset: 0; text-align: center; line-height: 12px; font-size: 11px; color: #5f4f8a; text-shadow: 0 0 3px #fff, 0 0 3px #fff; letter-spacing: 1px; }
+        #help-btn { align-self: center; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: #b9a2f0; color: #fff; font-family: 'Jua', sans-serif; font-size: 18px; cursor: pointer; box-shadow: 0 3px 0 #8f78d6; flex: none; }
+        #cushion { display: none; }
+        .hot { position: absolute; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; z-index: 2; -webkit-tap-highlight-color: transparent; border-radius: 14px; font-family: 'Jua', sans-serif; }
+        .hot:hover, .hot:active { background: rgba(255,255,255,.28); }
+        .hot .lb { position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%); white-space: nowrap; background: #fff; color: #8467d6; border: 2px solid #cdbdf2; border-radius: 12px; padding: 2px 9px; font-size: 12px; box-shadow: 0 2px 0 rgba(132,103,214,.25); animation: float 1.6s steps(2) infinite; image-rendering: auto; pointer-events: none; }
+        .hot.off { filter: grayscale(.8) opacity(.75); } .hot.off .lb { color: #9a8aa0; border-color: #ddd2e4; animation: none; }
+        #hot-door { left: 2.5%; top: 11.7%; width: 24.2%; height: 52%; }
+        #hot-bowl { left: 3.3%; top: 82.5%; width: 31.7%; height: 15.8%; }
+        #hot-toy { left: 71%; top: 66.5%; width: 25%; height: 31%; }
+        #hot-sofa { left: 25%; top: 30%; width: 50%; height: 40%; z-index: 1; }
+        #character-area { position: absolute; left: 50%; bottom: 41.7%; width: calc(var(--u) * 35.67); height: calc(var(--u) * 31.67); margin-left: calc(var(--u) * -17.83); cursor: pointer; z-index: 3; }
+        #bongbong-character { position: absolute; inset: 0; font-size: 56px; }
+        #bongbong-character.emoji { display: flex; align-items: flex-end; justify-content: center; }
+        #bongbong-character:active { transform: scale(.94); }
+        .speech-bubble { position: absolute; top: calc(var(--u) * -14); left: 50%; transform: translateX(-50%); background: #fff; color: #8467d6; padding: 4px 11px; border-radius: 14px; font-size: 12px; white-space: nowrap; border: 2px solid #cdbdf2; box-shadow: 0 3px 0 rgba(132,103,214,.25); animation: float 1.4s steps(2) infinite; z-index: 5; image-rendering: auto; }
+        .speech-bubble::after { content: ''; position: absolute; bottom: -7px; left: 50%; margin-left: -5px; border-width: 6px 5px 0; border-style: solid; border-color: #cdbdf2 transparent transparent; }
+        @keyframes float { 0%, 100% { margin-top: 0; } 50% { margin-top: -4px; } }
+        /* ===== 방 아래 패널: 버튼 3개 + 설명 ===== */
+        #panel { padding: 14px 12px 16px; background: #faf7ff; }
+        .button-group { display: none; }
+        .act { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+        .act p { margin: 0; font-size: 11.5px; line-height: 1.45; color: #7c6ba8; padding: 0 2px; word-break: keep-all; }
+        .btn { position: relative; width: 100%; height: 92px; padding: 6px 4px; border-radius: 22px !important; border: 4px solid #fff; color: var(--text); font-family: 'Jua', sans-serif; font-size: 14px; line-height: 1.15; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: .1s;
+               background-image: linear-gradient(rgba(255,255,255,.5), rgba(255,255,255,0) 55%); }
+        .btn::before { content: ''; display: block; width: 32px; height: 32px; margin-bottom: 2px; background: url('pix_icons.png') no-repeat; background-size: 256px 192px; image-rendering: pixelated; }
+        .btn span { font-size: 11px; opacity: .8; }
+        .tip { margin: 14px 2px 0; padding: 10px 12px; border-radius: 16px; background: #f3edff; border: 2px dashed #cdbdf2; font-size: 12.5px; line-height: 1.6; color: #6f5f9a; text-align: left; }
+        .tip b { color: #8467d6; font-weight: normal; }
+        .btn-eat { background-color: #ffd98a; box-shadow: 0 5px 0 #e8b95a, 0 0 0 2px #cdbdf2; }
+        .btn-walk { background-color: #a8ecc8; box-shadow: 0 5px 0 #6fcf9f, 0 0 0 2px #cdbdf2; }
+        .btn-play { background-color: #a9d4ff; box-shadow: 0 5px 0 #73b3f0, 0 0 0 2px #cdbdf2; }
+        .btn-eat::before { background-position: -64px -96px; } .btn-walk::before { background-position: -128px -96px; } .btn-play::before { background-position: 0px -128px; }
+        .btn:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 0 0 0 transparent, 0 0 0 2px #cdbdf2; }
+        .btn:disabled { background-color: #ddd5e2 !important; box-shadow: 0 5px 0 #b9b0c2, 0 0 0 2px #cdbdf2 !important; color: #8d8296; cursor: not-allowed; }
+        .btn:disabled::before { filter: grayscale(1); opacity: .6; }
+        /* ===== 팝업 (인사 / 도움말) ===== */
+        #greet-modal, #help-modal { display: none; position: fixed; inset: 0; background: rgba(70,50,110,.45); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: #fbf8ff; width: 90%; max-width: 350px; padding: 24px; border-radius: 28px; border: 4px solid #fff; box-shadow: 0 0 0 4px #cdbdf2, 0 14px 30px rgba(0,0,0,.25); text-align: center; }
+        .modal-content h3 { color: #8467d6; margin-top: 0; font-size: 20px; }
+        .modal-content .guide { text-align: left; font-size: 14px; line-height: 1.8; color: var(--text); }
+        .greet-btn { display: block; width: 100%; padding: 12px; margin: 10px 0; border: 3px solid #d9cef5; border-radius: 999px; background: #fff; font-family: 'Jua', sans-serif; font-size: 15px; color: var(--text); cursor: pointer; }
+        .greet-btn:hover { background: #f3edff; border-color: #bba8ee; }
+        .close-btn { margin-top: 15px; background: #b8aed6; color: #fff; border: 0; padding: 8px 22px; border-radius: 999px; font-family: 'Jua', sans-serif; cursor: pointer; }
+        /* ===== 봉봉이 모션 ===== */
+        .m-wiggle { animation: mWiggle .36s steps(4) 3; } .m-bounce { animation: mBounce .3s steps(3) 3; } .m-tilt { animation: mTilt 1.4s steps(3) 1; }
+        @keyframes mWiggle { 0% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } 100% { transform: rotate(-6deg); } }
+        @keyframes mBounce { 0% { transform: scale(1.08,.9); } 50% { transform: translateY(-9px) scale(.94,1.08); } 100% { transform: scale(1.08,.9); } }
+        @keyframes mTilt { 0% { transform: rotate(0); } 35% { transform: rotate(-9deg); } 70% { transform: rotate(7deg); } 100% { transform: rotate(0); } }
     </style>
 </head>
 <body>
 
+<div id="wrap">
+    <div id="hud">
+        <div id="bars">
+            <div class="status-box">
+                <div class="status-label"><span>⚡ 스트레스</span> <span id="stress-emoji"></span></div>
+                <div class="bar-container"><div id="stress-bar" class="bar-fill stress-fill" style="width: 50%;"></div><div id="stress-text" class="bar-text">50 / 100</div></div>
+            </div>
+            <div class="status-box">
+                <div class="status-label"><span>🍖 건강도</span> <span id="health-emoji"></span></div>
+                <div class="bar-container"><div id="health-bar" class="bar-fill health-fill" style="width: 50%;"></div><div id="health-text" class="bar-text">50 / 100</div></div>
+            </div>
+        </div>
+        <button id="help-btn" onclick="document.getElementById('help-modal').style.display='flex'">?</button>
+    </div>
+
 <div id="game-container">
-    <h2>🐶 봉봉프린스메이커</h2>
-    
+    <button class="hot" id="hot-door" onclick="hotGo('btn-walk')" aria-label="산책 나가기"><span class="lb">🚪 산책</span></button>
+    <button class="hot" id="hot-bowl" onclick="hotGo('btn-eat')" aria-label="밥 주기"><span class="lb">🥣 밥</span></button>
+    <button class="hot" id="hot-toy" onclick="hotGo('btn-play')" aria-label="장난감 찾기"><span class="lb">🧺 장난감</span></button>
+    <button class="hot" id="hot-sofa" onclick="openGreeting()" aria-label="소파"></button>
     <div id="character-area" onclick="openGreeting()">
         <div id="greet-bubble" class="speech-bubble" style="display: none;">💬 터치해서 인사하기!</div>
-        <div id="bongbong-character">🐕</div>
-    </div>
-    
-    <div class="status-box">
-        <div class="status-label"><span>⚡ 스트레스</span> <span id="stress-emoji"></span></div>
-        <div class="bar-container">
-            <div id="stress-bar" class="bar-fill stress-fill" style="width: 50%;"></div>
-            <div id="stress-text" class="bar-text">50 / 100</div>
-        </div>
+        <div id="bongbong-character"></div>
     </div>
 
-    <div class="status-box">
-        <div class="status-label"><span>🍖 건강도</span> <span id="health-emoji"></span></div>
-        <div class="bar-container">
-            <div id="health-bar" class="bar-fill health-fill" style="width: 50%;"></div>
-            <div id="health-text" class="bar-text">50 / 100</div>
-        </div>
-    </div>
+</div>
 
+<div id="panel">
     <div class="button-group">
-        <button class="btn btn-eat" onclick="playGame('eat')">밥 주기<br><span style="font-size:12px;">(12시간)</span></button>
-        <button id="btn-walk" class="btn btn-walk" onclick="playGame('walk')">산책가기<br><span style="font-size:12px;">(LV.1)</span></button>
-        <button id="btn-play" class="btn btn-play" onclick="playGame('play')">장난감<br><span style="font-size:12px;">(0/5개)</span></button>
+        <div class="act"><button id="btn-eat" class="btn btn-eat" onclick="playGame('eat')">밥 주기<br><span>(12시간)</span></button><p>장을 보고 요리해서 봉봉이 밥을 챙겨줘요</p></div>
+        <div class="act"><button id="btn-walk" class="btn btn-walk" onclick="playGame('walk')">산책가기<br><span>(LV.1)</span></button><p>함께 산책하면 건강이 쑥쑥! 레벨이 올라요</p></div>
+        <div class="act"><button id="btn-play" class="btn btn-play" onclick="playGame('play')">장난감<br><span>(0/5개)</span></button><p>장난감을 모으면 스트레스가 줄어요</p></div>
     </div>
+    <div class="tip"><div>🚪 <b>나무 문</b> — 봉봉이와 산책하러 나가요 (건강 ↑)</div><div>🥣 <b>밥그릇</b> — 장 봐서 요리해 밥을 챙겨줘요</div><div>🧺 <b>장난감 바구니</b> — 장난감을 모으면 스트레스 ↓</div><div>🛋️ <b>소파·봉봉이</b> — 터치하면 인사해요 (하루 1번)</div><div>⚠️ 밥·산책을 거르면 건강 ↓ 스트레스 ↑</div></div>
+</div>
+</div>
 
-    <div class="instructions">
-        <strong>🎮 플레이 가이드</strong><br>
+<div id="help-modal"> <div class="modal-content">
+    <h3>🎮 플레이 가이드</h3>
+    <div class="guide">
         ✔️ <b>인사하기:</b> 봉봉이를 터치하세요! (하루 1번)<br>
         ✔️ <b>장난감:</b> 모을 때마다 최대 스트레스 -10 감소!<br>
         ✔️ <b>밥/산책:</b> 안 챙겨주면 건강-10, 스트레스+10<br>
         🏥 <b>동물 병원:</b> 건강 10 이하 시 강제 이송!<br>
         ☠️ <b>배드 엔딩:</b> 스트레스 최대치 도달 (가출)
     </div>
-</div>
+    <button class="close-btn" onclick="document.getElementById('help-modal').style.display='none'">닫기</button>
+</div></div>
 
 <div id="greet-modal" style="display: none;"> <div class="modal-content">
         <h3>💬 봉봉이에게 뭐라고 할까?</h3>
@@ -97,6 +131,7 @@
     </div>
 </div>
 
+<script src="bongbong-sprite.js"></script>
 <script>
     const getToday = () => { const offset = new Date().getTimezoneOffset() * 60000; return new Date(Date.now() - offset).toISOString().split('T')[0]; };
 
@@ -156,6 +191,43 @@
 
     function saveGame() { localStorage.setItem('bongbongData', JSON.stringify(bongbong)); }
 
+    // ===== 봉봉이 캐릭터 (도트 애니메이션 / 특수 상태에서는 이모지) =====
+    let dog = null;
+    function initCharacter() {
+        const host = document.getElementById('bongbong-character');
+        if (dog) dog.stop();
+        host.textContent = '';
+        if (typeof BongbongSprite === 'undefined') { // 스프라이트 파일이 없으면 기존 이모지로 대체
+            host.textContent = '🐕'; host.classList.add('emoji'); dog = null; return;
+        }
+        host.classList.remove('emoji');
+        dog = new BongbongSprite(host, { scale: fitU() / 6, fps: 10, base: 'beg' });
+        dog.idle();
+    }
+    function setCharacterEmoji(emoji) {   // 병원/가출/엔딩 같은 특수 상태
+        const host = document.getElementById('bongbong-character');
+        if (dog) dog.stop();
+        host.textContent = emoji; host.classList.add('emoji');
+    }
+    function setCharacterDog() { initCharacter(); }
+    // 방 폭에 맞춰 도트 한 칸의 크기(--u)와 봉봉이 크기를 맞춤
+    function fitU() { const w = document.getElementById('game-container').clientWidth || 360; const u = w / 120; document.documentElement.style.setProperty('--u', u + 'px'); return u; }
+    function hotGo(id) { const b = document.getElementById(id); if (b && !b.disabled) b.click(); }
+    setInterval(() => { [['hot-door','btn-walk'],['hot-bowl','btn-eat'],['hot-toy','btn-play']].forEach(p => { const h = document.getElementById(p[0]), b = document.getElementById(p[1]); if (h && b) h.classList.toggle('off', b.disabled); }); }, 400);
+    window.addEventListener('resize', () => { const u = fitU(); if (dog) dog.setScale(u / 6); });
+    // 가만히 있을 땐 혼자서 갸웃 / 살랑 / 통통 / 하이파이브
+    setInterval(() => {
+        const host = document.getElementById('bongbong-character');
+        if (!dog || document.hidden || host.classList.contains('emoji') || Math.random() < 0.35) return;
+        const picks = ['m-tilt', 'm-wiggle', 'm-bounce', 'hi5', 'e_happy', 'e_shy', 'e_smug', 'e_sleepy', 'e_surprise', 'e_love'];
+        const pick = picks[Math.floor(Math.random() * picks.length)];
+        if (pick === 'hi5' || pick.indexOf('e_') === 0) { dog.play(pick); return; }
+        host.classList.add(pick); setTimeout(() => host.classList.remove(pick), 1500);
+    }, 4200);
+    function reactCharacter(stressChange) { // 스트레스가 줄면 신나게 점프, 늘면 앉아서 기다리기
+        if (dog) dog.play(stressChange < 0 ? 'e_happy' : 'e_sad');
+    }
+
     function updateUI() {
         let maxStress = 100 - (bongbong.collectedToys.length * 10);
         const today = getToday();
@@ -172,20 +244,20 @@
         
         const btnWalk = document.getElementById('btn-walk');
         if(bongbong.walkLastPlayed === today) {
-            btnWalk.innerHTML = `산책 완료<br><span style="font-size:12px;">(내일 도전)</span>`; btnWalk.disabled = true;
+            btnWalk.innerHTML = `산책 완료<br><span>(내일 도전)</span>`; btnWalk.disabled = true;
         } else {
             let wLv = bongbong.walkLevel > 5 ? 5 : bongbong.walkLevel;
-            btnWalk.innerHTML = `산책가기<br><span style="font-size:12px;">(LV.${wLv})</span>`; btnWalk.disabled = false;
+            btnWalk.innerHTML = `산책가기<br><span>(LV.${wLv})</span>`; btnWalk.disabled = false;
         }
 
         const btnPlay = document.getElementById('btn-play');
         let toysCount = bongbong.collectedToys.length;
         if(toysCount >= 5) {
-            btnPlay.innerHTML = `수집 완료!<br><span style="font-size:12px;">(5/5개)</span>`; btnPlay.disabled = true;
+            btnPlay.innerHTML = `수집 완료!<br><span>(5/5개)</span>`; btnPlay.disabled = true;
         } else if(bongbong.toyLastPlayed === today) {
-            btnPlay.innerHTML = `놀이 완료<br><span style="font-size:12px;">(내일 도전)</span>`; btnPlay.disabled = true;
+            btnPlay.innerHTML = `놀이 완료<br><span>(내일 도전)</span>`; btnPlay.disabled = true;
         } else {
-            btnPlay.innerHTML = `장난감 찾기<br><span style="font-size:12px;">(${toysCount}/5개)</span>`; btnPlay.disabled = false;
+            btnPlay.innerHTML = `장난감 찾기<br><span>(${toysCount}/5개)</span>`; btnPlay.disabled = false;
         }
     }
 
@@ -218,28 +290,19 @@
         { text: "봉봉이에게 오늘의 운세 물어보기 🔮", reply: "오늘 너의 운세는 '나에게 소고기를 바치면 대길'이다 멍.", stress: -5 }
     ];
 
-    // 기존의 모달 여는 함수 이름이 다르다면 이 이름으로 맞춰주세요!
     function openGreeting() {
-        const today = new Date().toISOString().split('T')[0];
-        if (bongbongData.greetLastPlayed === today) {
+        if (bongbong.greetLastPlayed === getToday()) {
             alert("봉봉이: \"하루에 몇 번을 들이대는 거냐 멍! 피곤하다 저리 가라!\"");
             return;
         }
-
         // 25개 중 4개를 랜덤으로 뽑기
-        const shuffled = [...greetingPool].sort(() => 0.5 - Math.random());
-        const selectedOptions = shuffled.slice(0, 4);
-
-        // 버튼 4개에 뽑힌 텍스트와 클릭 이벤트 세팅
-        for(let i = 0; i < 4; i++) {
-            const btn = document.getElementById(`greet-btn-${i+1}`);
-            if (btn) {
-                btn.innerText = selectedOptions[i].text;
-                btn.onclick = function() { submitGreeting(selectedOptions[i]); };
-            }
+        const selectedOptions = [...greetingPool].sort(() => 0.5 - Math.random()).slice(0, 4);
+        for (let i = 0; i < 4; i++) {
+            const btn = document.getElementById(`greet-btn-${i + 1}`);
+            btn.innerText = selectedOptions[i].text;
+            btn.onclick = function () { submitGreeting(selectedOptions[i]); };
         }
-        
-        document.getElementById('greet-modal').style.display = 'block';
+        document.getElementById('greet-modal').style.display = 'flex';
     }
 
     function closeGreeting() {
@@ -247,49 +310,39 @@
     }
 
     function submitGreeting(option) {
-        document.getElementById('greet-modal').style.display = 'none';
-        
+        closeGreeting();
         alert(`봉봉이: ${option.reply}\n\n(스트레스 ${option.stress > 0 ? '+' : ''}${option.stress})`);
 
-        // 스탯 업데이트
-        bongbongData.stress += option.stress;
-        let maxStress = 100 - ((bongbongData.collectedToys || []).length * 10);
-        
-        if(bongbongData.stress > maxStress) bongbongData.stress = maxStress;
-        if(bongbongData.stress < 0) bongbongData.stress = 0;
-        
-        bongbongData.greetLastPlayed = new Date().toISOString().split('T')[0];
-        localStorage.setItem('bongbongData', JSON.stringify(bongbongData));
+        bongbong.stress += option.stress;
+        const maxStress = 100 - (bongbong.collectedToys.length * 10);
+        if (bongbong.stress > maxStress) bongbong.stress = maxStress;
+        if (bongbong.stress < 0) bongbong.stress = 0;
+        bongbong.greetLastPlayed = getToday();
 
-        // 화면 상단 스탯 텍스트 갱신 (index.html 내의 함수 이름에 맞게 수정 필요 시 수정)
-        document.getElementById('stress-text').innerText = bongbongData.stress;
-        
-        // 가출 체크 로직이 있다면 여기서 실행
-        if(bongbongData.stress >= maxStress) {
-            alert("봉봉이가 스트레스를 견디지 못하고 짐을 싸서 가출했습니다! 😭");
-            // 가출 엔딩 로직...
-        }
+        saveGame(); updateUI();
+        reactCharacter(option.stress);   // 알림창이 닫힌 뒤 반응 애니메이션
+        checkEnding();                   // 가출/엔딩 조건 확인
     }
 
     function checkEnding() {
         setTimeout(() => {
             let maxStress = 100 - (bongbong.collectedToys.length * 10);
             if (bongbong.health <= 10) {
-                document.getElementById('bongbong-character').innerText = "🚨🏥"; document.getElementById('bongbong-character').style.animation = "none";
+                setCharacterEmoji("🚨🏥");
                 alert("삐뽀삐뽀! 봉봉이의 건강이 너무 나빠져서 응급실에 다녀왔습니다!\n(건강 +30, 스트레스 +50 💉)");
                 bongbong.health += 30; bongbong.stress += 50;
                 if (bongbong.health > 100) bongbong.health = 100;
                 if (bongbong.stress > maxStress) bongbong.stress = maxStress;
                 saveGame(); updateUI();
-                document.getElementById('bongbong-character').style.animation = "bounce 1.5s infinite ease-in-out"; document.getElementById('bongbong-character').innerText = "🐕";
+                setCharacterDog();
                 setTimeout(checkEnding, 500);
             } 
             else if (bongbong.stress >= maxStress && maxStress >= 90) { // 장난감을 못 모았을 때만 가출 가능!
-                document.getElementById('bongbong-character').innerText = "💨🎒"; document.getElementById('bongbong-character').style.animation = "none";
+                setCharacterEmoji("💨🎒");
                 alert("봉봉이가 참다못해 짐을 싸서 가출했습니다... (가출 배드 엔딩 🎒)"); resetGame();
             }
             else if (bongbong.health >= 100 && bongbong.stress <= 0) {
-                document.getElementById('bongbong-character').innerText = "🤵‍♂️🐶"; document.getElementById('bongbong-character').style.animation = "none";
+                setCharacterEmoji("🤵‍♂️🐶");
                 alert("봉봉이가 훌륭하게 자랐습니다!\n'주인님, 그동안 정성껏 키워주셔서 감사합니다.' 정중하게 인사합니다. (해피 엔딩 🎉)"); resetGame();
             }
         }, 300);
@@ -303,10 +356,10 @@
 
     function resetGame() {
         bongbong = { stress: 50, health: 50, walkLevel: 1, walkLastPlayed: "", collectedToys: [], toyLastPlayed: "", feedLastPlayed: null, inventory: [], greetLastPlayed: "" };
-        saveGame(); document.getElementById('bongbong-character').style.animation = "bounce 1.5s infinite ease-in-out"; document.getElementById('bongbong-character').innerText = "🐕"; updateUI();
+        saveGame(); setCharacterDog(); updateUI();
     }
 
-    window.onload = loadGame;
+    window.onload = function () { initCharacter(); loadGame(); };
 </script>
 </body>
 </html>
